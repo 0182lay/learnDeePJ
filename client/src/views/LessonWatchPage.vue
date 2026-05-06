@@ -1,0 +1,728 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+import axios from 'axios'
+import { getCourseById } from '../api/courseApi'
+import { getMyEnrollments } from '../api/enrollmentApi'
+import { getLessonById, getLessonsByCourseId } from '../api/lessonApi'
+import { getProgress, updateProgress } from '../api/progressApi'
+import { getQuizByLessonId, type Quiz } from '../api/quizApi'
+import type { CourseDetail } from '../types/course'
+import type { Lesson } from '../types/lesson'
+import type { LearningProgress } from '../types/progress'
+
+const route = useRoute()
+const course = ref<CourseDetail | null>(null)
+const lesson = ref<Lesson | null>(null)
+const lessons = ref<Lesson[]>([])
+const quiz = ref<Quiz | null>(null)
+const currentEnrollmentId = ref('')
+const progressList = ref<LearningProgress[]>([])
+const localCompletedLessonIds = ref<string[]>([])
+const isLoading = ref(false)
+const errorMessage = ref('')
+const completeMessage = ref('')
+const markingLessonId = ref('')
+const videoShell = ref<HTMLElement | null>(null)
+const videoRef = ref<HTMLVideoElement | null>(null)
+const videoViewMode = ref<'normal' | 'wide' | 'fullscreen'>('normal')
+const isPlaying = ref(false)
+const currentTime = ref(0)
+const videoDuration = ref(0)
+const volume = ref(1)
+const isMuted = ref(false)
+
+const courseId = computed(() => route.params.courseId as string)
+const lessonId = computed(() => route.params.lessonId as string)
+
+const currentLessonIndex = computed(() => {
+  return lessons.value.findIndex((item) => item.lesson_id === lessonId.value)
+})
+
+const completedLessonCount = computed(() => {
+  return lessons.value.filter((item) => isLessonCompleted(item.lesson_id)).length
+})
+
+const progressPercent = computed(() => {
+  if (lessons.value.length === 0) return 0
+  return Math.round((completedLessonCount.value / lessons.value.length) * 100)
+})
+
+const lessonLayoutClass = computed(() => {
+  if (videoViewMode.value === 'wide' || videoViewMode.value === 'fullscreen') {
+    return 'grid flex-1 lg:grid-cols-[minmax(0,1fr)]'
+  }
+
+  return 'grid flex-1 lg:grid-cols-[minmax(0,1fr)_360px]'
+})
+
+const playerHeightClass = computed(() => {
+  if (videoViewMode.value === 'fullscreen') return 'min-h-screen'
+  if (videoViewMode.value === 'wide') return 'min-h-[calc(100vh-64px)]'
+  return 'min-h-[520px]'
+})
+
+const videoSizeClass = computed(() => {
+  if (videoViewMode.value === 'fullscreen') return 'h-screen max-h-screen'
+  if (videoViewMode.value === 'wide') return 'h-full max-h-[calc(100vh-64px)]'
+  return 'h-full max-h-[calc(100vh-170px)]'
+})
+
+const videoProgressPercent = computed(() => {
+  if (!videoDuration.value) return 0
+  return (currentTime.value / videoDuration.value) * 100
+})
+
+const videoFile = computed(() => {
+  return lesson.value?.files?.find((file) => file.file_type === 'video') || null
+})
+
+const imageFile = computed(() => {
+  return lesson.value?.files?.find((file) => file.file_type === 'image') || null
+})
+
+const documentFile = computed(() => {
+  return lesson.value?.files?.find((file) => file.file_type === 'document') || null
+})
+
+const getPublicFileUrl = (url: string | undefined) => {
+  if (!url) {
+    return ''
+  }
+
+  if (url.startsWith('http')) {
+    return url
+  }
+
+  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+}
+
+const videoUrl = computed(() => getPublicFileUrl(videoFile.value?.file_url))
+
+const imageUrl = computed(() => getPublicFileUrl(imageFile.value?.file_url))
+
+const documentUrl = computed(() => getPublicFileUrl(documentFile.value?.file_url))
+
+const downloadableUrl = computed(() => videoUrl.value || imageUrl.value || documentUrl.value)
+
+const isExercise = computed(() => {
+  return lesson.value?.lesson_type === 'exercise'
+})
+
+const isTextLesson = computed(() => {
+  return lesson.value?.lesson_type === 'text'
+})
+
+const getLessonTypeLabel = (item: Lesson | null) => {
+  if (item?.lesson_type === 'exercise') return 'ແບບຝຶກຫັດ'
+  if (item?.lesson_type === 'document') return 'ເອກະສານ'
+  if (item?.lesson_type === 'text') return 'ບົດຄວາມ'
+  return 'ວິດີໂອ'
+}
+
+const formatDuration = (seconds: number | null | undefined) => {
+  if (!seconds) {
+    return ''
+  }
+
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`
+}
+
+const formatVideoTime = (seconds: number) => {
+  if (!Number.isFinite(seconds)) return '0:00'
+
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`
+}
+
+const isLessonCompleted = (targetLessonId: string) => {
+  return (
+    localCompletedLessonIds.value.includes(targetLessonId) ||
+    progressList.value.some((progress) => {
+      return progress.lesson_id === targetLessonId && progress.is_completed
+    })
+  )
+}
+
+const markCurrentLessonComplete = async () => {
+  if (!lesson.value || isLessonCompleted(lesson.value.lesson_id) || markingLessonId.value) {
+    return
+  }
+
+  const targetLessonId = lesson.value.lesson_id
+  localCompletedLessonIds.value.push(targetLessonId)
+
+  if (!currentEnrollmentId.value) {
+    completeMessage.value = 'ສະແດງວ່າຮຽນຈົບແລ້ວ. ຖ້າຕ້ອງການບັນທຶກຖາວອນ ຕ້ອງລົງທະບຽນຄອສກ່ອນ.'
+    return
+  }
+
+  try {
+    markingLessonId.value = targetLessonId
+
+    const updated = await updateProgress(currentEnrollmentId.value, targetLessonId, {
+      is_completed: true,
+    })
+
+    const index = progressList.value.findIndex((progress) => {
+      return progress.lesson_id === updated.lesson_id
+    })
+
+    if (index >= 0) {
+      progressList.value[index] = updated
+    } else {
+      progressList.value.push(updated)
+    }
+
+    completeMessage.value = 'ບັນທຶກວ່າຮຽນຈົບບົດນີ້ແລ້ວ'
+  } catch (error) {
+    console.log(error)
+    completeMessage.value = 'ສະແດງວ່າຮຽນຈົບແລ້ວ ແຕ່ບັນທຶກ progress ບໍ່ສຳເລັດ'
+  } finally {
+    markingLessonId.value = ''
+  }
+}
+
+const syncVideoState = (video: HTMLVideoElement) => {
+  currentTime.value = video.currentTime
+  videoDuration.value = video.duration || 0
+  isPlaying.value = !video.paused
+  volume.value = video.volume
+  isMuted.value = video.muted
+}
+
+const handleVideoLoadedMetadata = (event: Event) => {
+  syncVideoState(event.target as HTMLVideoElement)
+}
+
+const handleVideoTimeUpdate = (event: Event) => {
+  const video = event.target as HTMLVideoElement
+  syncVideoState(video)
+
+  if (!video.duration) {
+    return
+  }
+
+  const watchedRatio = video.currentTime / video.duration
+
+  if (watchedRatio >= 0.95) {
+    markCurrentLessonComplete()
+  }
+}
+
+const togglePlay = async () => {
+  const video = videoRef.value
+  if (!video) return
+
+  if (video.paused) {
+    await video.play()
+  } else {
+    video.pause()
+  }
+
+  syncVideoState(video)
+}
+
+const seekVideo = (event: Event) => {
+  const video = videoRef.value
+  const input = event.target as HTMLInputElement
+
+  if (!video) return
+
+  video.currentTime = Number(input.value)
+  syncVideoState(video)
+}
+
+const changeVolume = (event: Event) => {
+  const video = videoRef.value
+  const input = event.target as HTMLInputElement
+
+  if (!video) return
+
+  video.volume = Number(input.value)
+  video.muted = video.volume === 0
+  syncVideoState(video)
+}
+
+const toggleMute = () => {
+  const video = videoRef.value
+  if (!video) return
+
+  video.muted = !video.muted
+  syncVideoState(video)
+}
+
+const toggleTheaterMode = () => {
+  videoViewMode.value = videoViewMode.value === 'wide' ? 'normal' : 'wide'
+}
+
+const toggleFullscreen = async () => {
+  if (document.fullscreenElement) {
+    await document.exitFullscreen()
+    videoViewMode.value = 'normal'
+    return
+  }
+
+  videoViewMode.value = 'fullscreen'
+  await videoShell.value?.requestFullscreen?.()
+}
+
+const handleFullscreenChange = () => {
+  if (!document.fullscreenElement && videoViewMode.value === 'fullscreen') {
+    videoViewMode.value = 'normal'
+  }
+}
+
+const loadLesson = async () => {
+  try {
+    isLoading.value = true
+    errorMessage.value = ''
+
+    completeMessage.value = ''
+
+    const [courseData, lessonsData, lessonData, enrollments] = await Promise.all([
+      getCourseById(courseId.value),
+      getLessonsByCourseId(courseId.value),
+      getLessonById(courseId.value, lessonId.value),
+      getMyEnrollments(),
+    ])
+
+    course.value = courseData
+    lessons.value = lessonsData
+    lesson.value = lessonData
+    quiz.value = null
+    currentEnrollmentId.value = ''
+    progressList.value = []
+    isPlaying.value = false
+    currentTime.value = 0
+    videoDuration.value = 0
+
+    const currentEnrollment = enrollments.find((enrollment) => {
+      return enrollment.course_id === courseId.value
+    })
+
+    if (currentEnrollment) {
+      currentEnrollmentId.value = currentEnrollment.enrollment_id
+      progressList.value = await getProgress(currentEnrollment.enrollment_id)
+    }
+
+    try {
+      quiz.value = await getQuizByLessonId(lessonId.value)
+    } catch (error) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 404) {
+        throw error
+      }
+    }
+  } catch (error) {
+    console.log(error)
+    errorMessage.value = 'ໂຫຼດບົດຮຽນບໍ່ສຳເລັດ'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadLesson()
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+})
+
+watch(
+  () => route.fullPath,
+  () => {
+    loadLesson()
+  },
+)
+</script>
+
+<template>
+  <main class="min-h-screen bg-[#f5f7fb]">
+    <section class="flex min-h-screen flex-col">
+      <header class="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 text-[#142b63] shadow-sm lg:px-10">
+        <div class="flex min-w-0 items-center gap-4">
+          <RouterLink
+            :to="`/courses/${courseId}`"
+            class="rounded-xl px-3 py-2 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-[#142b63]"
+          >
+            ← ກັບຄືນ
+          </RouterLink>
+
+          <div class="h-6 w-px bg-slate-200"></div>
+
+          <p class="truncate text-sm font-black text-[#142b63] md:text-base">
+            {{ course?.title || 'Course' }}
+          </p>
+        </div>
+
+        <RouterLink
+          :to="`/courses/${courseId}`"
+          class="grid h-9 w-9 place-items-center rounded-xl text-lg font-bold text-slate-500 transition hover:bg-slate-100 hover:text-[#142b63]"
+          aria-label="Close lesson"
+        >
+          ×
+        </RouterLink>
+      </header>
+
+      <section v-if="isLoading" class="grid flex-1 place-items-center text-slate-500">
+        Loading...
+      </section>
+
+      <section v-else-if="errorMessage" class="grid flex-1 place-items-center px-6">
+        <p class="rounded-2xl bg-red-50 px-5 py-4 text-red-600">{{ errorMessage }}</p>
+      </section>
+
+      <section v-else-if="lesson" :class="lessonLayoutClass">
+        <div ref="videoShell" class="flex flex-col bg-black" :class="playerHeightClass">
+          <div class="grid flex-1 place-items-center bg-black p-0">
+            <div
+              v-if="isExercise"
+              class="w-full max-w-5xl rounded-2xl bg-white p-8 shadow-2xl"
+            >
+              <span class="rounded-full bg-[#f5a400]/15 px-3 py-1 text-xs font-black text-[#b87900]">
+                ແບບຝຶກຫັດ
+              </span>
+              <h1 class="mt-4 text-3xl font-black text-slate-950">{{ lesson.title }}</h1>
+              <p class="mt-3 text-sm leading-7 text-slate-500">
+                {{ lesson.description || 'ຕອບຄຳຖາມດ້ານລຸ່ມເພື່ອຝຶກຄວາມເຂົ້າໃຈ' }}
+              </p>
+
+              <div v-if="quiz?.questions.length" class="mt-6 space-y-5">
+                <article
+                  v-for="(question, questionIndex) in quiz.questions"
+                  :key="question.question_id"
+                  class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                >
+                  <p class="text-sm font-black text-[#142b63]">ຄຳຖາມ {{ questionIndex + 1 }}</p>
+                  <h2 class="mt-2 font-black text-slate-950">{{ question.question_text }}</h2>
+
+                  <div class="mt-4 space-y-3">
+                    <label
+                      v-for="option in question.options"
+                      :key="option"
+                      class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600"
+                    >
+                      <input type="radio" :name="question.question_id" />
+                      {{ option }}
+                    </label>
+                  </div>
+                </article>
+              </div>
+
+              <p v-else class="mt-6 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                ບົດຮຽນນີ້ຍັງບໍ່ມີຄຳຖາມ
+              </p>
+            </div>
+
+            <div
+              v-else-if="videoUrl"
+              class="group relative grid h-full w-full place-items-center bg-black"
+            >
+              <video
+                ref="videoRef"
+                :src="videoUrl"
+                autoplay
+                class="w-full bg-black object-contain"
+                :class="videoSizeClass"
+                @click="togglePlay"
+                @ended="markCurrentLessonComplete"
+                @loadedmetadata="handleVideoLoadedMetadata"
+                @pause="syncVideoState($event.target as HTMLVideoElement)"
+                @play="syncVideoState($event.target as HTMLVideoElement)"
+                @timeupdate="handleVideoTimeUpdate"
+              ></video>
+
+              <button
+                v-if="!isPlaying"
+                type="button"
+                class="absolute left-1/2 top-1/2 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#f5a400]/90 pl-1 text-3xl text-slate-950 shadow-[0_18px_50px_rgba(245,164,0,0.32)] transition hover:scale-105"
+                @click="togglePlay"
+              >
+                ▶
+              </button>
+
+              <div
+                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-5 pb-4 pt-16 opacity-0 transition group-hover:opacity-100"
+              >
+                <input
+                  type="range"
+                  min="0"
+                  :max="videoDuration || 0"
+                  step="0.1"
+                  :value="currentTime"
+                  class="h-1 w-full cursor-pointer accent-[#f5a400]"
+                  :style="{ background: `linear-gradient(to right, #f5a400 ${videoProgressPercent}%, rgba(255,255,255,0.32) ${videoProgressPercent}%)` }"
+                  @input="seekVideo"
+                />
+
+                <div class="mt-3 flex items-center justify-between gap-4 text-white">
+                  <div class="flex items-center gap-3">
+                    <button
+                      type="button"
+                      class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-sm font-black transition hover:bg-white/20"
+                      @click="togglePlay"
+                    >
+                      {{ isPlaying ? '❚❚' : '▶' }}
+                    </button>
+
+                    <button
+                      type="button"
+                      class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-sm transition hover:bg-white/20"
+                      @click="toggleMute"
+                    >
+                      {{ isMuted || volume === 0 ? '🔇' : '🔊' }}
+                    </button>
+
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      :value="isMuted ? 0 : volume"
+                      class="hidden h-1 w-20 cursor-pointer accent-[#f5a400] sm:block"
+                      @input="changeVolume"
+                    />
+
+                    <span class="font-number text-xs font-bold text-white/85">
+                      {{ formatVideoTime(currentTime) }} / {{ formatVideoTime(videoDuration) }}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-base font-black transition hover:bg-white/20"
+                      :title="videoViewMode === 'wide' ? 'Normal mode' : 'Theater mode'"
+                      @click="toggleTheaterMode"
+                    >
+                      ▭
+                    </button>
+
+                    <button
+                      type="button"
+                      class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-base font-black transition hover:bg-white/20"
+                      title="Fullscreen"
+                      @click="toggleFullscreen"
+                    >
+                      ⛶
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hidden">
+                <button
+                  type="button"
+                  class="grid h-9 w-9 place-items-center rounded-lg border border-white/15 bg-black/55 text-base font-black text-white/90 shadow-lg backdrop-blur transition hover:bg-black/80 hover:text-white"
+                  :title="videoViewMode === 'wide' ? 'Normal mode' : 'Theater mode'"
+                  @click="toggleTheaterMode"
+                >
+                  ▭
+                </button>
+              </div>
+            </div>
+
+            <img
+              v-else-if="imageUrl"
+              :src="imageUrl"
+              :alt="lesson.title"
+              class="max-h-[calc(100vh-210px)] w-full max-w-7xl rounded-[1.25rem] bg-white object-contain shadow-[0_28px_90px_rgba(0,0,0,0.28)] ring-1 ring-white/10"
+            />
+
+            <div
+              v-else-if="documentUrl"
+              class="w-full max-w-3xl rounded-2xl bg-white p-8 text-center shadow-2xl"
+            >
+              <div class="mx-auto grid h-20 w-20 place-items-center rounded-2xl bg-[#f5a400]/15 text-4xl text-[#f5a400]">
+                📄
+              </div>
+              <h1 class="mt-6 text-2xl font-black text-slate-950">{{ lesson.title }}</h1>
+              <p class="mt-3 text-sm leading-7 text-slate-500">
+                {{ documentFile?.original_name || 'Document file' }}
+              </p>
+              <div class="mt-6 flex justify-center gap-3">
+                <a
+                  :href="documentUrl"
+                  target="_blank"
+                  class="rounded-xl bg-[#142b63] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0e214d]"
+                  @click="markCurrentLessonComplete"
+                >
+                  ເປີດເບິ່ງ
+                </a>
+                <a
+                  :href="documentUrl"
+                  download
+                  class="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-[#142b63] transition hover:border-[#142b63]"
+                >
+                  ດາວໂຫຼດ
+                </a>
+              </div>
+            </div>
+
+            <div
+              v-else-if="isTextLesson"
+              class="w-full max-w-4xl rounded-2xl bg-white p-8 shadow-2xl"
+            >
+              <span class="rounded-full bg-[#f5a400]/15 px-3 py-1 text-xs font-black text-[#b87900]">
+                Text
+              </span>
+              <h1 class="mt-4 text-3xl font-black text-slate-950">{{ lesson.title }}</h1>
+              <p class="mt-5 whitespace-pre-line text-base leading-8 text-slate-600">
+                {{ lesson.content || lesson.description || 'ບົດຮຽນນີ້ຍັງບໍ່ມີເນື້ອຫາ' }}
+              </p>
+            </div>
+
+            <div v-else-if="!isExercise" class="text-center text-white/70">
+              <div class="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[#f5a400]/20 text-3xl text-[#f5a400]">
+                ▶
+              </div>
+              <h1 class="mt-6 text-2xl font-black text-white">{{ lesson.title }}</h1>
+              <p class="mt-2">ບົດຮຽນນີ້ຍັງບໍ່ມີວິດີໂອ</p>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-200 bg-white px-6 py-5 shadow-[0_-18px_60px_rgba(15,23,42,0.06)] lg:px-10">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div class="flex items-center gap-3">
+                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-[#142b63]">
+                    {{ getLessonTypeLabel(lesson) }}
+                  </span>
+                  <span v-if="videoFile?.duration_seconds" class="text-sm font-bold text-slate-500">
+                    {{ formatDuration(videoFile.duration_seconds) }}
+                  </span>
+                  <span
+                    v-if="isLessonCompleted(lesson.lesson_id)"
+                    class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600"
+                  >
+                    ✓ ສຳເລັດ
+                  </span>
+                </div>
+
+                <h1 class="mt-3 text-2xl font-black text-slate-950">{{ lesson.title }}</h1>
+              </div>
+
+              <div class="flex gap-3">
+                <button
+                  type="button"
+                  :disabled="isLessonCompleted(lesson.lesson_id) || Boolean(markingLessonId)"
+                  class="rounded-xl bg-[#142b63] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0e214d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                  @click="markCurrentLessonComplete"
+                >
+                  {{ isLessonCompleted(lesson.lesson_id) ? 'ຮຽນຈົບແລ້ວ' : 'Mark complete' }}
+                </button>
+
+                <a
+                  v-if="downloadableUrl && !isExercise"
+                  :href="downloadableUrl"
+                  download
+                  class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-[#142b63] transition hover:border-[#142b63]"
+                >
+                  ດາວໂຫຼດ
+                </a>
+                <button
+                  type="button"
+                  class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-[#142b63] transition hover:border-[#142b63]"
+                >
+                  ແຊຣ໌
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-8">
+              <h2 class="text-xl font-black text-slate-950">ກ່ຽວກັບບົດຮຽນນີ້</h2>
+              <p v-if="completeMessage" class="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-600">
+                {{ completeMessage }}
+              </p>
+              <p class="mt-3 max-w-4xl text-sm leading-7 text-slate-500">
+                {{ lesson.description || 'ບໍ່ມີຄຳອະທິບາຍສຳລັບບົດຮຽນນີ້' }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <aside v-if="videoViewMode === 'normal'" class="border-l border-slate-200 bg-[#fbfcff]">
+          <div class="border-b border-slate-200 px-6 py-5">
+            <h2 class="text-lg font-black text-slate-950">ລາຍການບົດຮຽນ</h2>
+            <p class="mt-1 text-sm text-slate-500">
+              {{ lessons.length }} ບົດຮຽນ
+              <span v-if="currentLessonIndex >= 0">· ກຳລັງຮຽນບົດ {{ currentLessonIndex + 1 }}</span>
+            </p>
+          </div>
+
+          <div class="border-b border-slate-200 bg-white px-6 py-4">
+            <div class="flex items-center justify-between text-xs font-black text-slate-500">
+              <span>{{ completedLessonCount }}/{{ lessons.length }} ສຳເລັດ</span>
+              <span>{{ progressPercent }}%</span>
+            </div>
+            <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                class="h-full rounded-full bg-[#f5a400] transition-all"
+                :style="{ width: `${progressPercent}%` }"
+              ></div>
+            </div>
+          </div>
+
+          <div class="max-h-[calc(100vh-201px)] overflow-y-auto p-4">
+            <RouterLink
+              v-for="item in lessons"
+              :key="item.lesson_id"
+              :to="`/courses/${courseId}/learn/${item.lesson_id}`"
+              class="mb-3 flex gap-3 rounded-2xl border px-4 py-4 transition"
+              :class="item.lesson_id === lessonId ? 'border-[#f5a400]/30 bg-[#fff7e8] shadow-sm' : 'border-transparent bg-white hover:border-slate-200 hover:shadow-sm'"
+            >
+              <div class="w-6 pt-2 text-center">
+                <span
+                  v-if="isLessonCompleted(item.lesson_id)"
+                  class="inline-grid h-6 w-6 place-items-center rounded-full bg-[#f5a400]/15 text-xs font-black text-[#f5a400]"
+                >
+                  ✓
+                </span>
+                <span
+                  v-else
+                  class="inline-grid h-6 w-6 place-items-center rounded-full border border-slate-300 bg-white text-xs font-black text-slate-300"
+                >
+                </span>
+              </div>
+
+              <div
+                class="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+                :class="
+                  isLessonCompleted(item.lesson_id)
+                    ? 'bg-emerald-500 text-white'
+                    : item.lesson_id === lessonId
+                      ? 'bg-[#f5a400] text-slate-950'
+                      : 'bg-slate-100 text-slate-500'
+                "
+              >
+                {{ isLessonCompleted(item.lesson_id) ? '✓' : '▶' }}
+              </div>
+
+              <div class="min-w-0">
+                <h3
+                  class="truncate text-sm font-black"
+                  :class="item.lesson_id === lessonId ? 'text-[#f5a400]' : 'text-slate-950'"
+                >
+                  {{ item.title }}
+                </h3>
+                <p class="mt-1 text-xs font-medium text-slate-500">
+                  {{ getLessonTypeLabel(item) }}
+                  <span v-if="item.files?.[0]?.duration_seconds">
+                    · {{ formatDuration(item.files[0].duration_seconds) }}
+                  </span>
+                </p>
+              </div>
+            </RouterLink>
+          </div>
+        </aside>
+      </section>
+    </section>
+  </main>
+</template>

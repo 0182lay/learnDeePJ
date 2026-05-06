@@ -1,0 +1,326 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import HomeFooter from '../home/HomeFooter.vue'
+import { getMyEnrollments } from '../../api/enrollmentApi'
+import { getMyPayments } from '../../api/paymentApi'
+import { getProgress } from '../../api/progressApi'
+import { useAuthStore } from '../../stores/authStore'
+import fallbackCourseImage from '../../assets/images/learndeeimg.png'
+import type { MyEnrollment } from '../../types/enrollment'
+import type { MyPayment, PaymentStatus } from '../../types/payment'
+import type { LearningProgress } from '../../types/progress'
+
+type StudentTab = 'learning' | 'payments'
+
+const authStore = useAuthStore()
+
+const activeTab = ref<StudentTab>('learning')
+const enrollments = ref<MyEnrollment[]>([])
+const payments = ref<MyPayment[]>([])
+const progressByEnrollment = ref<Record<string, LearningProgress[]>>({})
+const isLoading = ref(false)
+const errorMessage = ref('')
+
+const displayName = computed(() => {
+  const profile = authStore.user?.profile
+  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+
+  return fullName || authStore.user?.email?.split('@')[0] || 'Student'
+})
+const avatarText = computed(() => displayName.value.slice(0, 2).toUpperCase())
+const avatarUrl = computed(() => authStore.user?.profile?.avatar_url || '')
+
+const resolveFileUrl = (url: string) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+}
+
+const completedCoursesCount = computed(() => {
+  return enrollments.value.filter((enrollment) => getCourseProgress(enrollment).percent === 100).length
+})
+
+const totalLessonsCount = computed(() => {
+  return Object.values(progressByEnrollment.value).reduce((sum, lessons) => sum + lessons.length, 0)
+})
+
+const averageProgress = computed(() => {
+  if (enrollments.value.length === 0) return 0
+
+  const total = enrollments.value.reduce((sum, enrollment) => {
+    return sum + getCourseProgress(enrollment).percent
+  }, 0)
+
+  return Math.round(total / enrollments.value.length)
+})
+
+const pendingPaymentsCount = computed(() => {
+  return payments.value.filter((payment) => payment.status === 'pending').length
+})
+
+const tabs: { key: StudentTab; label: string; icon: string }[] = [
+  { key: 'learning', label: 'ຄອສຂອງຂ້ອຍ', icon: '▣' },
+  { key: 'payments', label: 'ປະຫວັດການຈ່າຍ', icon: '▤' },
+]
+
+const statusLabel: Record<PaymentStatus, string> = {
+  pending: 'ລໍຖ້າອະນຸມັດ',
+  completed: 'ຈ່າຍສຳເລັດ',
+  failed: 'ບໍ່ສຳເລັດ',
+  refunded: 'ຄືນເງິນ',
+}
+
+const statusClass: Record<PaymentStatus, string> = {
+  pending: 'bg-[#f5a400]/10 text-[#9a6500]',
+  completed: 'bg-emerald-50 text-emerald-700',
+  failed: 'bg-red-50 text-red-600',
+  refunded: 'bg-slate-100 text-slate-600',
+}
+
+const formatMoney = (amount: string | number) => {
+  const value = Number(String(amount || 0).replace(/,/g, ''))
+  return `₭${value.toLocaleString('en-US')}`
+}
+
+const formatDate = (date: string) => {
+  return new Intl.DateTimeFormat('lo-LA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date))
+}
+
+const getInstructorName = (enrollment: MyEnrollment) => {
+  const profile = enrollment.course.instructor.profile
+  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+
+  return fullName || enrollment.course.instructor.email
+}
+
+const getCourseProgress = (enrollment: MyEnrollment) => {
+  const progressList = progressByEnrollment.value[enrollment.enrollment_id] || []
+  const total = progressList.length
+  const completed = progressList.filter((progress) => progress.is_completed).length
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0
+
+  return { total, completed, percent }
+}
+
+const getFirstLessonId = (enrollment: MyEnrollment) => {
+  const progressList = progressByEnrollment.value[enrollment.enrollment_id] || []
+  return progressList[0]?.lesson_id
+}
+
+const getPaymentMethodLabel = (method: string | null) => {
+  if (!method) return 'ບໍ່ລະບຸ'
+
+  const labels: Record<string, string> = {
+    qr: 'QR',
+    card: 'Card',
+    mobile: 'Mobile Banking',
+  }
+
+  return labels[method] || method
+}
+
+const loadDashboard = async () => {
+  try {
+    isLoading.value = true
+    errorMessage.value = ''
+
+    const [enrollmentList, paymentList] = await Promise.all([getMyEnrollments(), getMyPayments()])
+
+    enrollments.value = enrollmentList
+    payments.value = paymentList
+
+    const progressEntries = await Promise.all(
+      enrollmentList.map(async (enrollment) => {
+        const progress = await getProgress(enrollment.enrollment_id)
+        return [enrollment.enrollment_id, progress] as const
+      }),
+    )
+
+    progressByEnrollment.value = Object.fromEntries(progressEntries)
+  } catch (error) {
+    console.log(error)
+    errorMessage.value = 'ໂຫຼດຂໍ້ມູນ Dashboard ບໍ່ສຳເລັດ'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadDashboard()
+})
+</script>
+
+<template>
+  <main class="min-h-screen bg-[#f7f8fb]">
+    <section class="mx-auto max-w-[1700px] px-6 py-8 lg:px-20 2xl:px-28">
+      <div class="flex items-center gap-4">
+        <img
+          v-if="avatarUrl"
+          :src="resolveFileUrl(avatarUrl)"
+          :alt="displayName"
+          class="h-16 w-16 rounded-full object-cover ring-4 ring-white shadow-sm"
+        />
+        <div v-else class="grid h-16 w-16 place-items-center rounded-full bg-[#142b63] text-lg font-black text-white">
+          {{ avatarText }}
+        </div>
+        <div>
+          <h1 class="text-3xl font-black text-[#0f1f4d]">ສະບາຍດີ, {{ displayName }}!</h1>
+          <p class="mt-1 text-sm font-medium text-slate-500">ສິ່ງທີ່ກຳລັງຮຽນຂອງທ່ານ</p>
+        </div>
+      </div>
+
+      <p v-if="errorMessage" class="mt-6 rounded-2xl bg-red-50 px-5 py-4 text-sm font-bold text-red-600">
+        {{ errorMessage }}
+      </p>
+
+      <p v-if="isLoading" class="mt-8 rounded-2xl bg-white px-6 py-10 text-center text-sm font-bold text-slate-500">
+        Loading dashboard...
+      </p>
+
+      <template v-else>
+        <div class="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <article class="card-soft p-5">
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl">📖</div>
+            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ enrollments.length }}</p>
+            <p class="mt-2 text-sm font-bold text-slate-500">ຄອສທີ່ລົງທະບຽນ</p>
+          </article>
+
+          <article class="card-soft p-5">
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#f5a400]/10 text-xl">⏱</div>
+            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ totalLessonsCount }}</p>
+            <p class="mt-2 text-sm font-bold text-slate-500">ບົດຮຽນທັງໝົດ</p>
+          </article>
+
+          <article class="card-soft p-5">
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-xl">🏆</div>
+            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ completedCoursesCount }}</p>
+            <p class="mt-2 text-sm font-bold text-slate-500">ຄອສສຳເລັດ</p>
+          </article>
+
+          <article class="card-soft p-5">
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-xl">↗</div>
+            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ averageProgress }}%</p>
+            <p class="mt-2 text-sm font-bold text-slate-500">ຄວາມຄືບໜ້າສະເລ່ຍ</p>
+          </article>
+        </div>
+
+        <div class="mt-8 inline-grid w-full max-w-xl grid-cols-2 rounded-2xl bg-slate-200/80 p-1">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            type="button"
+            class="flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black transition"
+            :class="activeTab === tab.key ? 'bg-white text-[#142b63] shadow-sm' : 'text-slate-500 hover:text-[#142b63]'"
+            @click="activeTab = tab.key"
+          >
+            <span>{{ tab.icon }}</span>
+            <span>{{ tab.label }}</span>
+          </button>
+        </div>
+
+        <section v-if="activeTab === 'learning'" class="mt-6 space-y-5">
+          <p v-if="enrollments.length === 0" class="card-soft px-6 py-10 text-center text-sm font-bold text-slate-500">
+            ຍັງບໍ່ມີຄອສທີ່ລົງທະບຽນ
+          </p>
+
+          <article
+            v-for="enrollment in enrollments"
+            :key="enrollment.enrollment_id"
+            class="card-soft flex flex-col gap-4 p-4 md:flex-row md:items-center"
+          >
+            <img
+              :src="enrollment.course.thumbnail_url || fallbackCourseImage"
+              :alt="enrollment.course.title"
+              class="h-24 w-full rounded-xl object-cover md:w-40"
+            />
+
+            <div class="min-w-0 flex-1">
+              <h2 class="line-clamp-1 text-lg font-black text-[#0f1f4d]">
+                {{ enrollment.course.title }}
+              </h2>
+              <p class="mt-1 text-sm font-medium text-slate-500">ອ. {{ getInstructorName(enrollment) }}</p>
+
+              <div class="mt-4 flex items-center gap-4">
+                <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-[#f5a400]">
+                  <div
+                    class="h-full rounded-full bg-[#142b63]"
+                    :style="{ width: `${getCourseProgress(enrollment).percent}%` }"
+                  />
+                </div>
+                <span class="font-number text-sm font-bold text-slate-500">
+                  {{ getCourseProgress(enrollment).percent }}%
+                </span>
+              </div>
+            </div>
+
+            <RouterLink
+              v-if="getFirstLessonId(enrollment)"
+              :to="`/courses/${enrollment.course_id}/learn/${getFirstLessonId(enrollment)}`"
+              class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#142b63] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0e214d]"
+            >
+              ▷ ຮຽນຕໍ່
+            </RouterLink>
+
+            <RouterLink
+              v-else
+              :to="`/courses/${enrollment.course_id}`"
+              class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 px-5 py-3 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
+            >
+              ເບິ່ງຄອສ
+            </RouterLink>
+          </article>
+        </section>
+
+        <section v-else class="mt-6">
+          <p v-if="payments.length === 0" class="card-soft px-6 py-10 text-center text-sm font-bold text-slate-500">
+            ຍັງບໍ່ມີປະຫວັດການຈ່າຍ
+          </p>
+
+          <div v-else class="space-y-4">
+            <article
+              v-for="payment in payments"
+              :key="payment.payment_id"
+              class="card-soft grid gap-4 p-5 lg:grid-cols-[1fr_auto_auto]"
+            >
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="text-lg font-black text-[#0f1f4d]">{{ payment.course.title }}</h2>
+                  <span class="rounded-full px-3 py-1 text-xs font-black" :class="statusClass[payment.status]">
+                    {{ statusLabel[payment.status] }}
+                  </span>
+                </div>
+                <p class="mt-2 text-sm font-medium text-slate-500">
+                  {{ formatDate(payment.created_at) }} · {{ getPaymentMethodLabel(payment.payment_method) }}
+                </p>
+              </div>
+
+              <div>
+                <p class="text-xs font-bold uppercase text-slate-400">Amount</p>
+                <p class="mt-1 font-number text-xl font-black text-[#f5a400]">{{ formatMoney(payment.amount) }}</p>
+              </div>
+
+              <RouterLink
+                :to="`/courses/${payment.course_id}`"
+                class="inline-flex items-center justify-center rounded-xl border border-slate-200 px-5 py-3 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
+              >
+                ເບິ່ງຄອສ
+              </RouterLink>
+            </article>
+          </div>
+
+          <p v-if="pendingPaymentsCount > 0" class="mt-4 rounded-2xl bg-[#f5a400]/10 px-5 py-4 text-sm font-bold text-[#9a6500]">
+            ມີ {{ pendingPaymentsCount }} ລາຍການທີ່ລໍຖ້າ admin ອະນຸມັດ
+          </p>
+        </section>
+      </template>
+    </section>
+
+    <HomeFooter />
+  </main>
+</template>
