@@ -40,7 +40,7 @@ export const getCategoryById = async (req: Request, res: Response) => {
 
 export const createCategory = async (req: Request, res: Response) => {
     try {
-        const { name, description } = req.body;
+        const { name, description, icon } = req.body;
 
         // 1. ເພີ່ມ Validate ປ້ອງກັນຄົນສົ່ງຄ່າວ່າງມາ
         if (!name) {
@@ -48,7 +48,7 @@ export const createCategory = async (req: Request, res: Response) => {
                 message: "ກະລຸນາລະບຸຊື່ໝວດໝູ່",
             });
         }
-        const category = await createCategoryService(name, description);
+        const category = await createCategoryService(name, description, icon);
 
         return res.status(201).json({
             message: "ສ້າງໝວດໝູ່ສຳເລັດ",
@@ -74,11 +74,12 @@ export const createCategory = async (req: Request, res: Response) => {
 export const updateCategory = async (req: Request, res: Response) => {
     try {
         const categoryId = req.params.categoryId as string;
-        const { name, description } = req.body;
+        const { name, description, icon } = req.body;
 
         const updated = await updateCategoryService(categoryId, {
             name,
             description,
+            icon,
         });
         return res.status(200).json({
             message: "ອັບເດດສຳເລັດ!!!",

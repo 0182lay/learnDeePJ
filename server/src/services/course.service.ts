@@ -165,11 +165,18 @@ export const deleteCourseService = async (
         }),
     ];
 
-    await prisma.course.delete({
-        where: {
-            course_id,
-        },
-    });
+    await prisma.$transaction([
+        prisma.certificate.deleteMany({
+            where: {
+                course_id,
+            },
+        }),
+        prisma.course.delete({
+            where: {
+                course_id,
+            },
+        }),
+    ]);
 
     await deleteUploadedFiles(uploadedFileUrls);
 

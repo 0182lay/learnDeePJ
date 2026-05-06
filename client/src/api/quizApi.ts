@@ -18,6 +18,26 @@ export type Quiz = {
   questions: QuizQuestion[]
 }
 
+export type QuizSubmission = {
+  submission_id: string
+  quiz_id: string
+  student_id: string
+  score: number
+  total: number
+  submitted_at: string
+}
+
+export type QuizSubmitAnswer = {
+  question_id: string
+  answer: string
+}
+
+export type QuizSubmitResult = {
+  score: number
+  total: number
+  submission: QuizSubmission
+}
+
 export type CreateQuizQuestionPayload = {
   question_text: string
   question_type: 'multiple_choice' | 'true_false'
@@ -49,4 +69,21 @@ export const updateQuiz = async (lessonId: string, payload: CreateQuizPayload) =
 
 export const deleteQuiz = async (lessonId: string) => {
   await http.delete(`/lessons/${lessonId}/quiz`)
+}
+
+export const submitQuiz = async (lessonId: string, answers: QuizSubmitAnswer[]) => {
+  const res = await http.post<{ message: string; data: QuizSubmitResult }>(
+    `/lessons/${lessonId}/quiz/submit`,
+    { answers },
+  )
+
+  return res.data.data
+}
+
+export const getQuizResult = async (lessonId: string) => {
+  const res = await http.get<{ message: string; data: QuizSubmission[] }>(
+    `/lessons/${lessonId}/quiz/result`,
+  )
+
+  return res.data.data
 }

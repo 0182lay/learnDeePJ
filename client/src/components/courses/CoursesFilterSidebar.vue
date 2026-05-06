@@ -1,17 +1,35 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import type { Category } from '../../types/category'
 
-const categories = [
-  { label: 'ທັງໝົດ', value: 'all', count: 28, icon: '📋' },
-  { label: 'ການພັດທະນາເວັບ', value: 'web', count: 45, icon: '🌐' },
-  { label: 'ການອອກແບບ', value: 'design', count: 32, icon: '🎨' },
-  { label: 'ທຸລະກິດ', value: 'business', count: 28, icon: '💼' },
-  { label: 'ການຕະຫຼາດ', value: 'marketing', count: 21, icon: '📈' },
-  { label: 'ພາສາ', value: 'language', count: 18, icon: '🗣️' },
-  { label: 'ເທັກໂນໂລຊີ', value: 'technology', count: 37, icon: '💻' },
-  { label: 'ການເງິນ', value: 'finance', count: 15, icon: '💰' },
-  { label: 'ສຸຂະພາບ', value: 'health', count: 12, icon: '🩺' },
-]
+const props = defineProps<{
+  categories: Category[]
+  selectedCategory: string
+  selectedLevel: string
+  selectedPrice: string
+}>()
+
+const emit = defineEmits<{
+  'update:selectedCategory': [value: string]
+  'update:selectedLevel': [value: string]
+  'update:selectedPrice': [value: string]
+}>()
+
+const categoryOptions = computed(() => {
+  const totalCourses = props.categories.reduce((total, category) => {
+    return total + (category.course_count ?? 0)
+  }, 0)
+
+  return [
+    { label: 'ທັງໝົດ', value: 'all', count: totalCourses, icon: '📋' },
+    ...props.categories.map((category) => ({
+      label: category.name,
+      value: category.category_id,
+      count: category.course_count ?? 0,
+      icon: category.icon || '📚',
+    })),
+  ]
+})
 
 const levels = [
   { label: 'ທັງໝົດ', value: 'all' },
@@ -26,25 +44,13 @@ const prices = [
   { label: 'ເສຍເງິນ', value: 'paid' },
 ]
 
-defineProps<{
-  selectedCategory: string
-  selectedLevel: string
-  selectedPrice: string
-}>()
-
-const emit = defineEmits<{
-  'update:selectedCategory': [value: string]
-  'update:selectedLevel': [value: string]
-  'update:selectedPrice': [value: string]
-}>()
-
 const isCollapsed = ref(false)
 </script>
 
 <template>
   <aside
     class="overflow-hidden border border-slate-200 bg-white shadow-sm transition-all duration-300"
-    :class="isCollapsed ? 'w-[56px] rounded-[18px]' : 'w-full rounded-2xl lg:w-[280px]'"
+    :class="isCollapsed ? 'w-[54px] rounded-[18px]' : 'w-full rounded-2xl lg:w-[260px]'"
   >
     <button
       type="button"
@@ -111,7 +117,7 @@ const isCollapsed = ref(false)
 
         <div class="space-y-1">
           <button
-            v-for="category in categories"
+            v-for="category in categoryOptions"
             :key="category.value"
             type="button"
             class="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm font-medium transition"

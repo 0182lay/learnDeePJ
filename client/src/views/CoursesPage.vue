@@ -1,30 +1,33 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { getCategories } from '../api/categoryApi'
 import { getCourses } from '../api/courseApi'
 import CoursesFilterSidebar from '../components/courses/CoursesFilterSidebar.vue'
 import CoursesGrid from '../components/courses/CoursesGrid.vue'
 import CoursesHero from '../components/courses/CoursesHero.vue'
 import CoursesStats from '../components/courses/CoursesStats.vue'
 import HomeFooter from '../components/home/HomeFooter.vue'
+import type { Category } from '../types/category'
 import type { Course } from '../types/course'
 
+const route = useRoute()
 const courses = ref<Course[]>([])
+const categories = ref<Category[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const searchText = ref('')
-const selectedCategory = ref('all')
+const selectedCategory = ref(typeof route.query.category === 'string' ? route.query.category : 'all')
 const selectedLevel = ref('all')
 const selectedPrice = ref('all')
 
-const categoryKeywords: Record<string, string[]> = {
-  web: ['web', 'ເວັບ', 'react', 'vue', 'frontend', 'backend'],
-  design: ['design', 'figma', 'ui', 'ux', 'ອອກແບບ'],
-  business: ['business', 'ທຸລະກິດ'],
-  marketing: ['marketing', 'ads', 'facebook', 'tiktok', 'ຕະຫຼາດ'],
-  language: ['language', 'ພາສາ'],
-  technology: ['technology', 'tech', 'ເທັກໂນໂລຊີ'],
-  finance: ['finance', 'ການເງິນ'],
-  health: ['health', 'ສຸຂະພາບ'],
+const fetchCategories = async () => {
+  try {
+    categories.value = await getCategories()
+  } catch (error) {
+    console.log(error)
+    categories.value = []
+  }
 }
 
 const fetchCourses = async () => {
@@ -71,16 +74,15 @@ const filteredCourses = computed(() => {
       selectedPrice.value === 'all' ||
       (selectedPrice.value === 'free' && coursePrice === 0) ||
       (selectedPrice.value === 'paid' && coursePrice > 0)
-
-    const keywords = categoryKeywords[selectedCategory.value] || []
     const matchesCategory =
-      selectedCategory.value === 'all' || keywords.some((keyword) => text.includes(keyword))
+      selectedCategory.value === 'all' || course.category?.category_id === selectedCategory.value
 
     return matchesSearch && matchesLevel && matchesCategory && matchesPrice
   })
 })
 
 onMounted(() => {
+  fetchCategories()
   fetchCourses()
 })
 </script>
@@ -96,6 +98,7 @@ onMounted(() => {
           v-model:selected-category="selectedCategory"
           v-model:selected-level="selectedLevel"
           v-model:selected-price="selectedPrice"
+          :categories="categories"
           class="shrink-0 lg:sticky lg:top-24"
         />
 

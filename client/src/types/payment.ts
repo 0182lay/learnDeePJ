@@ -7,6 +7,7 @@ export type Payment = {
   amount: string
   status: PaymentStatus
   payment_method: string | null
+  slip_url: string | null
   created_at: string
   updated_at: string
 }

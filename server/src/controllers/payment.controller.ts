@@ -3,7 +3,9 @@ import {
     getPaymentsService,
     createPaymentService,
     getPaymentByIdService,
+    uploadPaymentSlipService,
     updatePaymentStatusService,
+    deletePaymentService,
 } from "../services/payment.service";
 
 export const getPayments = async (req: Request, res: Response) => {
@@ -73,6 +75,42 @@ export const createPayment = async (req: Request, res: Response) => {
     }
 };
 
+export const uploadPaymentSlip = async (req: Request, res: Response) => {
+    try {
+        const paymentId = req.params.paymentId as string;
+        const student_id = (req as any).user?.user?.id;
+        const userRole = (req as any).user?.user?.role;
+
+        if (!req.file) {
+            return res.status(400).json({ message: "ກະລຸນາອັບໂຫຼດສະລິບ" });
+        }
+
+        const slipUrl = `/uploads/payment-slips/${req.file.filename}`;
+        const payment = await uploadPaymentSlipService(
+            paymentId,
+            student_id,
+            userRole,
+            slipUrl,
+        );
+
+        return res.status(200).json({
+            message: "ອັບໂຫຼດສະລິບສຳເລັດ",
+            data: payment,
+        });
+    } catch (error: any) {
+        if (error.message === "PAYMENT_NOT_FOUND") {
+            return res.status(404).json({ message: "ບໍ່ພົບ Payment" });
+        }
+        if (error.message === "FORBIDDEN") {
+            return res.status(403).json({ message: "ບໍ່ມີສິດອັບໂຫຼດສະລິບນີ້" });
+        }
+        if (error.message === "PAYMENT_NOT_PENDING") {
+            return res.status(400).json({ message: "Payment ນີ້ກວດແລ້ວ" });
+        }
+        return res.status(500).json({ message: "ອັບໂຫຼດສະລິບບໍ່ສຳເລັດ" });
+    }
+};
+
 export const updatePaymentStatus = async (req: Request, res: Response) => {
     try {
         const paymentId = req.params.paymentId as string;
@@ -89,5 +127,23 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "ບໍ່ພົບ Payment" });
         }
         return res.status(500).json({ message: "ອັບເດດ Payment ບໍ່ສຳເລັດ" });
+    }
+};
+
+export const deletePayment = async (req: Request, res: Response) => {
+    try {
+        const paymentId = req.params.paymentId as string;
+        const result = await deletePaymentService(paymentId);
+
+        return res.status(200).json({
+            message: "ລົບ payment ສຳເລັດ",
+            data: result,
+        });
+    } catch (error: any) {
+        if (error.message === "PAYMENT_NOT_FOUND") {
+            return res.status(404).json({ message: "ບໍ່ພົບ Payment" });
+        }
+
+        return res.status(500).json({ message: "ລົບ payment ບໍ່ສຳເລັດ" });
     }
 };

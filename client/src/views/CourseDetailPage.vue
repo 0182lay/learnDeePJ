@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { enrollCourse, getMyEnrollments } from '../api/enrollmentApi'
 import { getLessonsByCourseId } from '../api/lessonApi'
-import { createPayment } from '../api/paymentApi'
+import { createPayment, getMyPayments, uploadPaymentSlip } from '../api/paymentApi'
 import { getProgress, updateProgress } from '../api/progressApi'
 import { getCourseById } from '../api/courseApi'
 import CourseDetailStats from '../components/course-detail/CourseDetailStats.vue'
@@ -15,6 +15,7 @@ import PaymentDialog from '../components/payment/PaymentDialog.vue'
 import type { CourseDetail } from '../types/course'
 import type { MyEnrollment } from '../types/enrollment'
 import type { Lesson } from '../types/lesson'
+import type { MyPayment } from '../types/payment'
 import type { LearningProgress } from '../types/progress'
 
 const route = useRoute()
@@ -25,6 +26,7 @@ const errorMessage = ref('')
 const enrollMessage = ref('')
 const isEnrolling = ref(false)
 const enrollments = ref<MyEnrollment[]>([])
+const payments = ref<MyPayment[]>([])
 const isAlreadyEnrolled = ref(false)
 const currentEnrollment = ref<MyEnrollment | null>(null)
 const currentEnrollmentId = ref('')
@@ -62,6 +64,7 @@ const instructorName = computed(() => {
 
 const refreshEnrollmentState = async (courseId: string) => {
   enrollments.value = await getMyEnrollments()
+  payments.value = await getMyPayments()
   currentEnrollment.value =
     enrollments.value.find((enrollment) => enrollment.course_id === courseId) || null
   isAlreadyEnrolled.value = !!currentEnrollment.value
@@ -108,6 +111,24 @@ const progressPercent = computed(() => {
 
 const firstLessonId = computed(() => lessons.value[0]?.lesson_id || '')
 
+const coursePriceNumber = computed(() => {
+  return Number(String(course.value?.price || 0).replace(/,/g, '')) || 0
+})
+
+const requiresPayment = computed(() => coursePriceNumber.value > 0)
+
+const canAccessCourse = computed(() => {
+  return isAlreadyEnrolled.value && (!requiresPayment.value || !!currentEnrollment.value?.is_paid)
+})
+
+const coursePayment = computed(() => {
+  return payments.value.find((payment) => payment.course_id === course.value?.course_id)
+})
+
+const hasSubmittedSlip = computed(() => {
+  return !!coursePayment.value?.slip_url && coursePayment.value.status === 'pending'
+})
+
 const handleCompleteLesson = async (lessonId: string) => {
   if (!currentEnrollmentId.value) {
     return
@@ -128,7 +149,7 @@ const handleCompleteLesson = async (lessonId: string) => {
 
 const handleEnroll = async () => {
   if (!course.value?.is_published) {
-    enrollMessage.value = 'ຄອສນີ້ຍັງບໍ່ເປີດສອນ ຈຶ່ງຍັງລົງທະບຽນບໍ່ໄດ້'
+    enrollMessage.value = 'ຄອສນີ້ຍັງບໍ່ເປີດສອນ'
     return
   }
 
@@ -139,20 +160,31 @@ const handleEnroll = async () => {
     const courseId = route.params.courseId as string
     await enrollCourse(courseId)
     await refreshEnrollmentState(courseId)
-    enrollMessage.value = 'ລົງທະບຽນຄອສສຳເລັດ'
+
+    if (requiresPayment.value && !currentEnrollment.value?.is_paid) {
+      if (hasSubmittedSlip.value) {
+        enrollMessage.value = 'ສົ່ງສະລີບແລ້ວ. ລໍຖ້າການອະນຸມັດຈາກແອດມິນ.'
+        return
+      }
+
+      showPaymentDialog.value = true
+      enrollMessage.value = 'ລົງທະບຽນແລ້ວ. ກະລຸນາອັບໂຫຼດສະລີບເພື່ອໃຫ້ແອດມິນກວດ.'
+    } else {
+      enrollMessage.value = 'ລົງທະບຽນຄອສສຳເລັດ'
+    }
   } catch (error: unknown) {
     if (axios.isAxiosError<{ message: string }>(error)) {
-      enrollMessage.value = error.response?.data?.message || 'ລົງທະບຽນຄອສບໍ່ສຳເລັດ'
+      enrollMessage.value = error.response?.data?.message || 'ລົງທະບຽນບໍ່ສຳເລັດ'
       return
     }
 
-    enrollMessage.value = 'ລົງທະບຽນຄອສບໍ່ສຳເລັດ'
+    enrollMessage.value = 'ລົງທະບຽນບໍ່ສຳເລັດ'
   } finally {
     isEnrolling.value = false
   }
 }
 
-const handlePaymentSuccess = async (method: 'qr' | 'card' | 'mobile') => {
+const handlePaymentSuccess = async (slip: File) => {
   try {
     isEnrolling.value = true
     enrollMessage.value = ''
@@ -170,19 +202,20 @@ const handlePaymentSuccess = async (method: 'qr' | 'card' | 'mobile') => {
       }
     }
 
-    await createPayment(courseId, method)
+    const payment = await createPayment(courseId, 'slip')
+    await uploadPaymentSlip(payment.payment_id, slip)
     await refreshEnrollmentState(courseId)
     showPaymentDialog.value = false
-    enrollMessage.value = 'ສ້າງ payment ແລ້ວ. ກຳລັງລໍຖ້າ admin ອະນຸມັດ'
+    enrollMessage.value = 'ສົ່ງສະລີບແລ້ວ. ລໍຖ້າການອະນຸມັດຈາກແອດມິນ.'
   } catch (error: unknown) {
     showPaymentDialog.value = false
 
     if (axios.isAxiosError<{ message: string }>(error)) {
-      enrollMessage.value = error.response?.data?.message || 'ສ້າງ payment ບໍ່ສຳເລັດ'
+      enrollMessage.value = error.response?.data?.message || 'ອັບໂຫຼດສະລີບບໍ່ສຳເລັດ'
       return
     }
 
-    enrollMessage.value = 'ສ້າງ payment ບໍ່ສຳເລັດ'
+    enrollMessage.value = 'ອັບໂຫຼດສະລີບບໍ່ສຳເລັດ'
   } finally {
     isEnrolling.value = false
   }
@@ -279,6 +312,10 @@ onMounted(() => {
             :first-lesson-id="firstLessonId"
             :progress-percent="progressPercent"
             :is-already-enrolled="isAlreadyEnrolled"
+            :can-access-course="canAccessCourse"
+            :requires-payment="requiresPayment"
+            :is-paid="!!currentEnrollment?.is_paid"
+            :has-submitted-slip="hasSubmittedSlip"
             :is-enrolling="isEnrolling"
             :enroll-message="enrollMessage"
             :is-published="course.is_published"

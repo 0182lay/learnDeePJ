@@ -37,6 +37,19 @@ const profileStorage = multer.diskStorage({
     },
 });
 
+const paymentSlipStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const folder = "uploads/payment-slips";
+        fs.mkdirSync(folder, { recursive: true });
+        cb(null, folder);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+        cb(null, filename);
+    },
+});
+
 const documentTypes = [
     "application/pdf",
     "application/msword",
@@ -99,5 +112,19 @@ export const uploadProfileAvatar = multer({
     },
     limits: {
         fileSize: 2 * 1024 * 1024,
+    },
+});
+
+export const uploadPaymentSlip = multer({
+    storage: paymentSlipStorage,
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith("image/")) {
+            cb(null, true);
+        } else {
+            cb(new Error("INVALID_IMAGE_TYPE"));
+        }
+    },
+    limits: {
+        fileSize: 5 * 1024 * 1024,
     },
 });

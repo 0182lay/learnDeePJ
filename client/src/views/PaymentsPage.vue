@@ -56,6 +56,12 @@ const getInstructorName = (payment: MyPayment) => {
   return fullName || payment.course.instructor?.email || 'Instructor'
 }
 
+const resolveFileUrl = (url: string) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+}
+
 const statusLabel: Record<PaymentStatus, string> = {
   pending: 'ລໍຖ້າອະນຸມັດ',
   completed: 'ສຳເລັດ',
@@ -235,6 +241,18 @@ onMounted(() => {
               <p>
                 <span class="block text-xs font-bold uppercase text-slate-400">Created</span>
                 <span class="font-bold text-slate-600">{{ formatDate(payment.created_at) }}</span>
+              </p>
+
+              <p v-if="payment.slip_url">
+                <span class="block text-xs font-bold uppercase text-slate-400">Slip</span>
+                <a
+                  :href="resolveFileUrl(payment.slip_url)"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="font-bold text-[#142b63] underline"
+                >
+                  View slip
+                </a>
               </p>
             </div>
 

@@ -1,25 +1,35 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import HomeFooter from '../home/HomeFooter.vue'
+import {
+  getMyCertificates,
+  issueCertificate,
+  type Certificate,
+} from '../../api/certificateApi'
 import { getMyEnrollments } from '../../api/enrollmentApi'
 import { getMyPayments } from '../../api/paymentApi'
 import { getProgress } from '../../api/progressApi'
 import { useAuthStore } from '../../stores/authStore'
 import fallbackCourseImage from '../../assets/images/learndeeimg.png'
+import logoUrl from '../../assets/images/logo.svg'
 import type { MyEnrollment } from '../../types/enrollment'
 import type { MyPayment, PaymentStatus } from '../../types/payment'
 import type { LearningProgress } from '../../types/progress'
 
-type StudentTab = 'learning' | 'payments'
+type StudentTab = 'learning' | 'payments' | 'certificates'
 
 const authStore = useAuthStore()
 
 const activeTab = ref<StudentTab>('learning')
 const enrollments = ref<MyEnrollment[]>([])
 const payments = ref<MyPayment[]>([])
+const certificates = ref<Certificate[]>([])
 const progressByEnrollment = ref<Record<string, LearningProgress[]>>({})
 const isLoading = ref(false)
 const errorMessage = ref('')
+const certificateMessage = ref('')
+const issuingCourseId = ref('')
+const printingCertificateId = ref('')
 
 const displayName = computed(() => {
   const profile = authStore.user?.profile
@@ -40,8 +50,34 @@ const completedCoursesCount = computed(() => {
   return enrollments.value.filter((enrollment) => getCourseProgress(enrollment).percent === 100).length
 })
 
-const totalLessonsCount = computed(() => {
-  return Object.values(progressByEnrollment.value).reduce((sum, lessons) => sum + lessons.length, 0)
+const totalLearningSeconds = computed(() => {
+  return Object.values(progressByEnrollment.value).reduce((total, lessons) => {
+    return (
+      total +
+      lessons.reduce((sum, progress) => {
+        return sum + progress.watch_duration_seconds
+      }, 0)
+    )
+  }, 0)
+})
+
+const totalLearningTimeParts = computed(() => {
+  const totalMinutes = Math.floor(totalLearningSeconds.value / 60)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+
+  if (hours > 0 && minutes > 0) {
+    return [
+      { value: hours, unit: 'ຊມ' },
+      { value: minutes, unit: 'ນາທີ' },
+    ]
+  }
+
+  if (hours > 0) {
+    return [{ value: hours, unit: 'ຊມ' }]
+  }
+
+  return [{ value: minutes, unit: 'ນາທີ' }]
 })
 
 const averageProgress = computed(() => {
@@ -61,6 +97,7 @@ const pendingPaymentsCount = computed(() => {
 const tabs: { key: StudentTab; label: string; icon: string }[] = [
   { key: 'learning', label: 'ຄອສຂອງຂ້ອຍ', icon: '▣' },
   { key: 'payments', label: 'ປະຫວັດການຈ່າຍ', icon: '▤' },
+  { key: 'certificates', label: 'ໃບປະກາດ', icon: '🏅' },
 ]
 
 const statusLabel: Record<PaymentStatus, string> = {
@@ -99,6 +136,13 @@ const getInstructorName = (enrollment: MyEnrollment) => {
   return fullName || enrollment.course.instructor.email
 }
 
+const getCertificateInstructorName = (certificate: Certificate) => {
+  const profile = certificate.course.instructor.profile
+  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+
+  return fullName || certificate.course.instructor.email
+}
+
 const getCourseProgress = (enrollment: MyEnrollment) => {
   const progressList = progressByEnrollment.value[enrollment.enrollment_id] || []
   const total = progressList.length
@@ -106,6 +150,10 @@ const getCourseProgress = (enrollment: MyEnrollment) => {
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0
 
   return { total, completed, percent }
+}
+
+const getCourseCertificate = (courseId: string) => {
+  return certificates.value.find((certificate) => certificate.course_id === courseId)
 }
 
 const getFirstLessonId = (enrollment: MyEnrollment) => {
@@ -125,15 +173,56 @@ const getPaymentMethodLabel = (method: string | null) => {
   return labels[method] || method
 }
 
+const handleIssueCertificate = async (enrollment: MyEnrollment) => {
+  if (issuingCourseId.value) return
+
+  try {
+    issuingCourseId.value = enrollment.course_id
+    certificateMessage.value = ''
+
+    const certificate = await issueCertificate(enrollment.course_id)
+    const index = certificates.value.findIndex((item) => item.course_id === certificate.course_id)
+
+    if (index >= 0) {
+      certificates.value[index] = certificate
+    } else {
+      certificates.value.unshift(certificate)
+    }
+
+    activeTab.value = 'certificates'
+    certificateMessage.value = 'ອອກໃບປະກາດສຳເລັດ'
+  } catch (error) {
+    console.log(error)
+    certificateMessage.value = 'ຍັງອອກໃບປະກາດບໍ່ໄດ້ ກວດວ່າຮຽນຄົບ ແລະ ຜ່ານ quiz ແລ້ວຫຼືຍັງ'
+  } finally {
+    issuingCourseId.value = ''
+  }
+}
+
+const handlePrintCertificate = async (certificateId: string) => {
+  printingCertificateId.value = certificateId
+  await nextTick()
+  window.print()
+
+  window.setTimeout(() => {
+    printingCertificateId.value = ''
+  }, 300)
+}
+
 const loadDashboard = async () => {
   try {
     isLoading.value = true
     errorMessage.value = ''
 
-    const [enrollmentList, paymentList] = await Promise.all([getMyEnrollments(), getMyPayments()])
+    const [enrollmentList, paymentList, certificateList] = await Promise.all([
+      getMyEnrollments(),
+      getMyPayments(),
+      getMyCertificates(),
+    ])
 
     enrollments.value = enrollmentList
     payments.value = paymentList
+    certificates.value = certificateList
 
     const progressEntries = await Promise.all(
       enrollmentList.map(async (enrollment) => {
@@ -193,8 +282,17 @@ onMounted(() => {
 
           <article class="card-soft p-5">
             <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#f5a400]/10 text-xl">⏱</div>
-            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ totalLessonsCount }}</p>
-            <p class="mt-2 text-sm font-bold text-slate-500">ບົດຮຽນທັງໝົດ</p>
+            <p class="mt-4 flex flex-wrap items-end gap-x-3 gap-y-1 text-[#0f1f4d]">
+              <span
+                v-for="part in totalLearningTimeParts"
+                :key="part.unit"
+                class="inline-flex items-end gap-1"
+              >
+                <span class="font-number text-3xl font-black leading-none">{{ part.value }}</span>
+                <span class="text-base font-black leading-none text-slate-500">{{ part.unit }}</span>
+              </span>
+            </p>
+            <p class="mt-2 text-sm font-bold text-slate-500">Learning time</p>
           </article>
 
           <article class="card-soft p-5">
@@ -210,7 +308,7 @@ onMounted(() => {
           </article>
         </div>
 
-        <div class="mt-8 inline-grid w-full max-w-xl grid-cols-2 rounded-2xl bg-slate-200/80 p-1">
+        <div class="mt-8 inline-grid w-full max-w-2xl grid-cols-3 rounded-2xl bg-slate-200/80 p-1">
           <button
             v-for="tab in tabs"
             :key="tab.key"
@@ -267,8 +365,30 @@ onMounted(() => {
               ▷ ຮຽນຕໍ່
             </RouterLink>
 
+            <button
+              v-if="
+                getCourseProgress(enrollment).percent === 100 &&
+                !getCourseCertificate(enrollment.course_id)
+              "
+              type="button"
+              :disabled="issuingCourseId === enrollment.course_id"
+              class="inline-flex shrink-0 items-center justify-center rounded-xl border border-[#f5a400]/40 bg-[#f5a400]/10 px-5 py-3 text-sm font-black text-[#9a6500] transition hover:bg-[#f5a400]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              @click="handleIssueCertificate(enrollment)"
+            >
+              {{ issuingCourseId === enrollment.course_id ? 'ກຳລັງອອກ...' : 'ຮັບໃບປະກາດ' }}
+            </button>
+
+            <button
+              v-else-if="getCourseCertificate(enrollment.course_id)"
+              type="button"
+              class="inline-flex shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-700"
+              @click="activeTab = 'certificates'"
+            >
+              ມີໃບປະກາດແລ້ວ
+            </button>
+
             <RouterLink
-              v-else
+              v-if="!getFirstLessonId(enrollment)"
               :to="`/courses/${enrollment.course_id}`"
               class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 px-5 py-3 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
             >
@@ -277,7 +397,7 @@ onMounted(() => {
           </article>
         </section>
 
-        <section v-else class="mt-6">
+        <section v-else-if="activeTab === 'payments'" class="mt-6">
           <p v-if="payments.length === 0" class="card-soft px-6 py-10 text-center text-sm font-bold text-slate-500">
             ຍັງບໍ່ມີປະຫວັດການຈ່າຍ
           </p>
@@ -318,9 +438,141 @@ onMounted(() => {
             ມີ {{ pendingPaymentsCount }} ລາຍການທີ່ລໍຖ້າ admin ອະນຸມັດ
           </p>
         </section>
+
+        <section v-else class="mt-6">
+          <p
+            v-if="certificateMessage"
+            class="mb-4 rounded-2xl bg-[#f5a400]/10 px-5 py-4 text-sm font-bold text-[#9a6500]"
+          >
+            {{ certificateMessage }}
+          </p>
+
+          <p
+            v-if="certificates.length === 0"
+            class="card-soft px-6 py-10 text-center text-sm font-bold text-slate-500"
+          >
+            ຍັງບໍ່ມີໃບປະກາດ
+          </p>
+
+          <div v-else class="grid gap-6 xl:grid-cols-2">
+            <article
+              v-for="certificate in certificates"
+              :key="certificate.certificate_id"
+              class="certificate-print-card relative overflow-hidden rounded-[1.75rem] border border-[#f5a400]/40 bg-[#fffdf8] p-2 shadow-[0_22px_60px_rgba(15,31,77,0.10)]"
+              :class="{ 'is-printing': printingCertificateId === certificate.certificate_id }"
+            >
+              <div class="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#f5a400]/15"></div>
+              <div class="absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-[#142b63]/10"></div>
+
+              <div class="relative rounded-[1.4rem] border border-dashed border-[#f5a400]/50 bg-white/90 p-6">
+                <img
+                  :src="logoUrl"
+                  alt=""
+                  class="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.045]"
+                />
+                <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p class="text-xs font-black uppercase tracking-[0.28em] text-[#9a6500]">
+                      Certificate of Completion
+                    </p>
+                    <p class="mt-5 text-sm font-black uppercase tracking-wide text-slate-400">
+                      Awarded to
+                    </p>
+                    <h2 class="mt-1 text-3xl font-black leading-tight text-[#0f1f4d]">
+                      {{ displayName }}
+                    </h2>
+                    <p class="mt-5 text-sm font-black uppercase tracking-wide text-slate-400">
+                      For successfully completing
+                    </p>
+                    <h3 class="mt-1 text-2xl font-black leading-tight text-[#142b63]">
+                      {{ certificate.course.title }}
+                    </h3>
+                    <p class="mt-4 max-w-xl text-sm font-medium leading-7 text-slate-500">
+                      This certificate confirms that the learner completed all required lessons and passed the course requirements.
+                    </p>
+                  </div>
+
+                  <div
+                    class="grid h-24 w-24 shrink-0 place-items-center rounded-full border-8 border-[#f5a400]/20 bg-white p-3 shadow-[0_16px_40px_rgba(20,43,99,0.22)]"
+                  >
+                    <img :src="logoUrl" alt="LearnDee" class="h-full w-full object-contain" />
+                  </div>
+                </div>
+
+                <div class="mt-8 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-3">
+                  <div>
+                    <p class="text-xs font-black uppercase text-slate-400">Instructor</p>
+                    <p class="mt-1 text-sm font-black text-[#142b63]">
+                      {{ getCertificateInstructorName(certificate) }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-black uppercase text-slate-400">Issued date</p>
+                    <p class="mt-1 text-sm font-black text-[#142b63]">
+                      {{ formatDate(certificate.issued_at) }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-black uppercase text-slate-400">Certificate code</p>
+                    <p class="mt-1 font-number text-sm font-black text-[#f5a400]">
+                      {{ certificate.certificate_code }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p class="text-xs font-bold text-slate-400">
+                    Verified by LearnDee
+                  </p>
+
+                  <button
+                    type="button"
+                    class="certificate-no-print rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
+                    @click="handlePrintCertificate(certificate.certificate_id)"
+                  >
+                    Print certificate
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
       </template>
     </section>
 
     <HomeFooter />
   </main>
 </template>
+
+<style scoped>
+@media print {
+  :global(body *) {
+    visibility: hidden !important;
+  }
+
+  .certificate-print-card {
+    display: none !important;
+  }
+
+  .certificate-print-card.is-printing,
+  .certificate-print-card.is-printing * {
+    visibility: visible !important;
+  }
+
+  .certificate-print-card.is-printing {
+    display: block !important;
+    position: fixed !important;
+    inset: 24px !important;
+    width: calc(100vw - 48px) !important;
+    height: auto !important;
+    box-shadow: none !important;
+    background: #fffdf8 !important;
+  }
+
+  .certificate-no-print {
+    display: none !important;
+  }
+}
+</style>

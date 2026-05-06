@@ -52,6 +52,7 @@ model User {
   updated_at    DateTime @updatedAt
 
   quiz_submissions QuizSubmission[]
+  certificates     Certificate[]
   reviews          CourseReview[]
   payments         Payment[]
   enrollments      Enrollment[]
@@ -83,6 +84,7 @@ model Category {
   category_id String   @id @default(uuid())
   name        String   @unique
   description String?  @db.Text
+  icon        String?  @default("📚")
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
@@ -106,6 +108,7 @@ model Course {
 
   reviews     CourseReview[]
   payments    Payment[]
+  certificates Certificate[]
   enrollments Enrollment[]
   lessons     Lesson[]
 
@@ -267,6 +270,7 @@ model Payment {
   amount         Decimal       @db.Decimal(10, 2)
   status         PaymentStatus @default(pending)
   payment_method String?
+  slip_url       String?
   created_at     DateTime      @default(now())
   updated_at     DateTime      @updatedAt
 
@@ -276,4 +280,20 @@ model Payment {
   @@index([student_id])
   @@index([course_id])
   @@map("payments")
+}
+
+model Certificate {
+  certificate_id   String   @id @default(uuid())
+  student_id       String
+  course_id        String
+  certificate_code String   @unique
+  issued_at        DateTime @default(now())
+
+  student User   @relation(fields: [student_id], references: [user_id], onDelete: Cascade)
+  course  Course @relation(fields: [course_id], references: [course_id], onDelete: Cascade)
+
+  @@unique([student_id, course_id])
+  @@index([student_id])
+  @@index([course_id])
+  @@map("certificates")
 }

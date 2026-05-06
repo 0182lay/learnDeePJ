@@ -54,3 +54,7 @@ export const updateUser = async (userId: string, payload: UpdateUserPayload) => 
   const res = await http.put<UserResponse>(`/users/${userId}`, payload)
   return res.data.data
 }
+
+export const deleteUser = async (userId: string) => {
+  await http.delete(`/users/${userId}`)
+}

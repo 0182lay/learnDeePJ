@@ -1,25 +1,36 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { getMyCourses } from '../../api/courseApi'
-import { getMyPayments, updatePaymentStatus } from '../../api/paymentApi'
+import {
+  createCategory,
+  deleteCategory,
+  getCategories,
+  updateCategory,
+  type CategoryPayload,
+} from '../../api/categoryApi'
+import { deleteCourse, getMyCourses } from '../../api/courseApi'
+import { deletePayment, getMyPayments, updatePaymentStatus } from '../../api/paymentApi'
 import { getUsers, updateUser } from '../../api/userApi'
 import { useAuthStore } from '../../stores/authStore'
+import type { Category } from '../../types/category'
 import type { Course } from '../../types/course'
 import type { MyPayment, PaymentStatus } from '../../types/payment'
 import type { AppUser } from '../../types/user'
 
-type AdminTab = 'overview' | 'courses' | 'instructors' | 'payments'
+type AdminTab = 'overview' | 'users' | 'courses' | 'categories' | 'instructors' | 'payments'
 
 const authStore = useAuthStore()
 
 const activeTab = ref<AdminTab>('overview')
 const users = ref<AppUser[]>([])
 const courses = ref<Course[]>([])
+const categories = ref<Category[]>([])
 const payments = ref<MyPayment[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const updatingId = ref('')
+const categoryForm = ref<CategoryPayload>({ name: '', description: '', icon: '📚' })
+const editingCategoryId = ref('')
 
 const displayName = computed(() => {
   const profile = authStore.user?.profile
@@ -57,6 +68,10 @@ const pendingPayments = computed(() => {
   return payments.value.filter((payment) => payment.status === 'pending')
 })
 
+const studentsCount = computed(() => {
+  return users.value.filter((user) => user.role === 'student').length
+})
+
 const totalRevenue = computed(() => {
   return completedPayments.value.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
 })
@@ -81,7 +96,9 @@ const recentActivities = computed(() => {
 
 const tabs: { key: AdminTab; label: string }[] = [
   { key: 'overview', label: 'ພາບລວມ' },
+  { key: 'users', label: 'Users' },
   { key: 'courses', label: 'ຄອສທັ້ງໝົດ' },
+  { key: 'categories', label: 'Categories' },
   { key: 'instructors', label: 'ຜູ້ສອນລໍຖ້າອະນຸມັດ' },
   { key: 'payments', label: 'ປະຫວັດການຊຳລະເງິນ' },
 ]
@@ -149,14 +166,16 @@ const fetchAdminData = async () => {
     isLoading.value = true
     errorMessage.value = ''
 
-    const [userList, courseList, paymentList] = await Promise.all([
+    const [userList, courseList, categoryList, paymentList] = await Promise.all([
       getUsers(),
       getMyCourses(),
+      getCategories(),
       getMyPayments(),
     ])
 
     users.value = userList
     courses.value = courseList
+    categories.value = categoryList
     payments.value = paymentList
   } catch (error) {
     console.log(error)
@@ -183,6 +202,161 @@ const handlePaymentStatus = async (paymentId: string, status: PaymentStatus) => 
   } catch (error) {
     console.log(error)
     errorMessage.value = 'ອັບເດດ payment ບໍ່ສຳເລັດ'
+  } finally {
+    updatingId.value = ''
+  }
+}
+
+const handleDeletePayment = async (payment: MyPayment) => {
+  const confirmed = window.confirm(`ຢືນຢັນລົບປະຫວັດການຊຳລະເງິນຂອງ "${payment.course.title}" ແທ້ບໍ?`)
+
+  if (!confirmed) return
+
+  try {
+    updatingId.value = payment.payment_id
+    successMessage.value = ''
+    errorMessage.value = ''
+
+    await deletePayment(payment.payment_id)
+    payments.value = payments.value.filter((item) => item.payment_id !== payment.payment_id)
+    successMessage.value = 'ລົບ payment ແລ້ວ'
+  } catch (error) {
+    console.log(error)
+    errorMessage.value = 'ລົບ payment ບໍ່ສຳເລັດ'
+  } finally {
+    updatingId.value = ''
+  }
+}
+
+const handleDeleteCourse = async (course: Course) => {
+  const confirmed = window.confirm(`ຢືນຢັນລົບຄອສ "${course.title}" ແທ້ບໍ?`)
+
+  if (!confirmed) return
+
+  try {
+    updatingId.value = course.course_id
+    successMessage.value = ''
+    errorMessage.value = ''
+
+    await deleteCourse(course.course_id)
+    courses.value = courses.value.filter((item) => item.course_id !== course.course_id)
+    successMessage.value = 'ລົບຄອສແລ້ວ'
+  } catch (error) {
+    console.log(error)
+    errorMessage.value = 'ລົບຄອສບໍ່ສຳເລັດ'
+  } finally {
+    updatingId.value = ''
+  }
+}
+
+const handleToggleUserActive = async (user: AppUser) => {
+  if (user.user_id === authStore.user?.id) {
+    errorMessage.value = 'You cannot ban your own admin account.'
+    return
+  }
+
+  try {
+    updatingId.value = user.user_id
+    successMessage.value = ''
+    errorMessage.value = ''
+
+    const updated = await updateUser(user.user_id, { is_active: !user.is_active })
+    const index = users.value.findIndex((item) => item.user_id === user.user_id)
+
+    if (index >= 0) {
+      users.value[index] = updated
+    }
+
+    successMessage.value = updated.is_active ? 'User enabled.' : 'User banned.'
+  } catch (error) {
+    console.log(error)
+    errorMessage.value = 'Update user status failed.'
+  } finally {
+    updatingId.value = ''
+  }
+}
+
+const resetCategoryForm = () => {
+  categoryForm.value = { name: '', description: '', icon: '📚' }
+  editingCategoryId.value = ''
+}
+
+const startEditCategory = (category: Category) => {
+  editingCategoryId.value = category.category_id
+  categoryForm.value = {
+    name: category.name,
+    description: category.description || '',
+    icon: category.icon || '📚',
+  }
+}
+
+const handleSaveCategory = async () => {
+  const name = categoryForm.value.name.trim()
+
+  if (!name) {
+    errorMessage.value = 'Category name is required.'
+    return
+  }
+
+  try {
+    updatingId.value = editingCategoryId.value || 'category-create'
+    successMessage.value = ''
+    errorMessage.value = ''
+
+    if (editingCategoryId.value) {
+      const updated = await updateCategory(editingCategoryId.value, {
+        name,
+        description: categoryForm.value.description?.trim(),
+        icon: categoryForm.value.icon?.trim() || '📚',
+      })
+      const index = categories.value.findIndex((category) => {
+        return category.category_id === updated.category_id
+      })
+
+      if (index >= 0) {
+        categories.value[index] = updated
+      }
+
+      successMessage.value = 'Category updated.'
+    } else {
+      const created = await createCategory({
+        name,
+        description: categoryForm.value.description?.trim(),
+        icon: categoryForm.value.icon?.trim() || '📚',
+      })
+      categories.value.unshift(created)
+      successMessage.value = 'Category created.'
+    }
+
+    resetCategoryForm()
+  } catch (error) {
+    console.log(error)
+    errorMessage.value = 'Save category failed. Check duplicate name or server error.'
+  } finally {
+    updatingId.value = ''
+  }
+}
+
+const handleDeleteCategory = async (category: Category) => {
+  const confirmed = window.confirm(`Delete category "${category.name}"?`)
+
+  if (!confirmed) return
+
+  try {
+    updatingId.value = category.category_id
+    successMessage.value = ''
+    errorMessage.value = ''
+
+    await deleteCategory(category.category_id)
+    categories.value = categories.value.filter((item) => item.category_id !== category.category_id)
+    successMessage.value = 'Category deleted.'
+
+    if (editingCategoryId.value === category.category_id) {
+      resetCategoryForm()
+    }
+  } catch (error) {
+    console.log(error)
+    errorMessage.value = 'Delete category failed. This category may still have courses.'
   } finally {
     updatingId.value = ''
   }
@@ -247,7 +421,10 @@ onMounted(() => {
           :alt="displayName"
           class="h-14 w-14 rounded-full object-cover ring-4 ring-white shadow-sm"
         />
-        <div v-else class="grid h-14 w-14 place-items-center rounded-full bg-[#142b63] text-base font-black text-white">
+        <div
+          v-else
+          class="grid h-14 w-14 place-items-center rounded-full bg-[#142b63] text-base font-black text-white"
+        >
           {{ avatarText }}
         </div>
 
@@ -276,7 +453,10 @@ onMounted(() => {
       </div>
     </div>
 
-    <p v-if="errorMessage" class="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+    <p
+      v-if="errorMessage"
+      class="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600"
+    >
       {{ errorMessage }}
     </p>
 
@@ -287,7 +467,10 @@ onMounted(() => {
       {{ successMessage }}
     </p>
 
-    <p v-if="isLoading" class="mt-8 rounded-2xl bg-white px-5 py-8 text-center text-sm font-bold text-slate-500">
+    <p
+      v-if="isLoading"
+      class="mt-8 rounded-2xl bg-white px-5 py-8 text-center text-sm font-bold text-slate-500"
+    >
       Loading admin dashboard...
     </p>
 
@@ -307,7 +490,9 @@ onMounted(() => {
 
         <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <div class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-xl">💵</div>
-          <p class="mt-4 text-3xl font-black text-[#0f1f4d]">{{ formatShortMoney(totalRevenue) }}</p>
+          <p class="mt-4 text-3xl font-black text-[#0f1f4d]">
+            {{ formatShortMoney(totalRevenue) }}
+          </p>
           <p class="mt-2 text-sm font-bold text-slate-500">ລາຍຮັບທີ່ອະນຸມັດ</p>
         </article>
 
@@ -324,7 +509,11 @@ onMounted(() => {
           :key="tab.key"
           type="button"
           class="rounded-xl px-4 py-2 text-sm font-bold transition"
-          :class="activeTab === tab.key ? 'bg-white text-[#142b63] shadow-sm' : 'text-slate-500 hover:text-[#142b63]'"
+          :class="
+            activeTab === tab.key
+              ? 'bg-white text-[#142b63] shadow-sm'
+              : 'text-slate-500 hover:text-[#142b63]'
+          "
           @click="activeTab = tab.key"
         >
           {{ tab.label }}
@@ -340,7 +529,10 @@ onMounted(() => {
             </span>
           </div>
 
-          <p v-if="pendingInstructors.length === 0" class="rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
+          <p
+            v-if="pendingInstructors.length === 0"
+            class="rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500"
+          >
             ຍັງບໍ່ມີຜູ້ສອນລໍຖ້າອະນຸມັດ
           </p>
 
@@ -351,7 +543,9 @@ onMounted(() => {
               class="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3"
             >
               <div class="flex min-w-0 items-center gap-3">
-                <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-200 text-sm font-black text-[#142b63]">
+                <div
+                  class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-200 text-sm font-black text-[#142b63]"
+                >
                   {{ getUserName(user).slice(0, 1).toUpperCase() }}
                 </div>
                 <div class="min-w-0">
@@ -387,7 +581,11 @@ onMounted(() => {
 
           <div class="space-y-5">
             <div v-for="activity in recentActivities" :key="activity.id" class="flex gap-4">
-              <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">◷</div>
+              <div
+                class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500"
+              >
+                ◷
+              </div>
               <div class="min-w-0 flex-1">
                 <p class="font-black text-[#0f1f4d]">{{ activity.title }}</p>
                 <p class="mt-1 truncate text-sm text-slate-500">{{ activity.detail }}</p>
@@ -398,7 +596,75 @@ onMounted(() => {
         </article>
       </section>
 
-      <section v-else-if="activeTab === 'courses'" class="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+      <section
+        v-else-if="activeTab === 'users'"
+        class="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+      >
+        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-xl font-black text-[#0f1f4d]">Users</h2>
+            <p class="mt-1 text-sm font-bold text-slate-500">
+              {{ users.length }} total · {{ studentsCount }} students · {{ instructors.length }} instructors
+            </p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[760px] text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-100 text-xs uppercase text-slate-400">
+                <th class="py-3 pr-4">User</th>
+                <th class="py-3 pr-4">Role</th>
+                <th class="py-3 pr-4">Status</th>
+                <th class="py-3 pr-4">Joined</th>
+                <th class="py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="user in users" :key="user.user_id" class="border-b border-slate-50">
+                <td class="py-4 pr-4">
+                  <p class="font-black text-[#0f1f4d]">{{ getUserName(user) }}</p>
+                  <p class="mt-1 text-xs font-medium text-slate-500">{{ user.email }}</p>
+                </td>
+                <td class="py-4 pr-4">
+                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-[#142b63]">
+                    {{ user.role }}
+                  </span>
+                </td>
+                <td class="py-4 pr-4">
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-black"
+                    :class="user.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'"
+                  >
+                    {{ user.is_active ? 'Active' : 'Banned / inactive' }}
+                  </span>
+                </td>
+                <td class="py-4 pr-4 text-slate-500">{{ formatDate(user.created_at) }}</td>
+                <td class="py-4 text-right">
+                  <button
+                    type="button"
+                    :disabled="updatingId === user.user_id || user.user_id === authStore.user?.id"
+                    class="rounded-xl border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                    :class="
+                      user.is_active
+                        ? 'border-red-200 text-red-500 hover:bg-red-50'
+                        : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                    "
+                    @click="handleToggleUserActive(user)"
+                  >
+                    {{ user.is_active ? 'Ban' : 'Unban' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section
+        v-else-if="activeTab === 'courses'"
+        class="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+      >
         <div class="mb-5 flex items-center justify-between">
           <h2 class="text-xl font-black text-[#0f1f4d]">ຄອສທັ້ງໝົດ</h2>
           <p class="text-sm font-bold text-slate-500">{{ courses.length }} ຄອສ</p>
@@ -414,12 +680,18 @@ onMounted(() => {
               <div>
                 <h3 class="font-black text-[#0f1f4d]">{{ course.title }}</h3>
                 <p class="mt-1 text-sm text-slate-500">ຜູ້ສອນ: {{ getInstructorName(course) }}</p>
-                <p class="mt-2 text-sm font-black text-[#f5a400]">{{ formatMoney(course.price) }}</p>
+                <p class="mt-2 text-sm font-black text-[#f5a400]">
+                  {{ formatMoney(course.price) }}
+                </p>
               </div>
 
               <span
                 class="rounded-full px-3 py-1 text-xs font-black"
-                :class="course.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-500'"
+                :class="
+                  course.is_published
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-slate-200 text-slate-500'
+                "
               >
                 {{ course.is_published ? 'Published' : 'Draft' }}
               </span>
@@ -438,18 +710,157 @@ onMounted(() => {
               >
                 ແກ້ໄຂ
               </RouterLink>
+              <button
+                type="button"
+                :disabled="updatingId === course.course_id"
+                class="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-500 transition hover:bg-red-50 disabled:text-slate-400"
+                @click="handleDeleteCourse(course)"
+              >
+                ລົບ
+              </button>
             </div>
           </article>
         </div>
       </section>
 
-      <section v-else-if="activeTab === 'instructors'" class="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+      <section
+        v-else-if="activeTab === 'categories'"
+        class="mt-6 grid gap-6 xl:grid-cols-[420px_1fr]"
+      >
+        <article class="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <h2 class="text-xl font-black text-[#0f1f4d]">
+            {{ editingCategoryId ? 'Edit category' : 'Create category' }}
+          </h2>
+
+          <div class="mt-5 space-y-4">
+            <label class="block">
+              <span class="text-sm font-black text-slate-600">Icon</span>
+              <input
+                v-model="categoryForm.icon"
+                type="text"
+                maxlength="4"
+                class="mt-2 w-24 rounded-xl border border-slate-200 px-4 py-3 text-center text-xl font-bold outline-none transition focus:border-[#142b63]"
+                placeholder="📚"
+              />
+              <span class="mt-1 block text-xs font-bold text-slate-400">
+                Use one emoji, for example 🌐 🎨 💼
+              </span>
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-black text-slate-600">Name</span>
+              <input
+                v-model="categoryForm.name"
+                type="text"
+                class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none transition focus:border-[#142b63]"
+                placeholder="Programming"
+              />
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-black text-slate-600">Description</span>
+              <textarea
+                v-model="categoryForm.description"
+                rows="4"
+                class="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none transition focus:border-[#142b63]"
+                placeholder="Short category description"
+              ></textarea>
+            </label>
+
+            <div class="flex gap-3">
+              <button
+                type="button"
+                :disabled="updatingId === 'category-create' || updatingId === editingCategoryId"
+                class="rounded-xl bg-[#142b63] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0e214d] disabled:bg-slate-400"
+                @click="handleSaveCategory"
+              >
+                {{ editingCategoryId ? 'Save changes' : 'Create' }}
+              </button>
+
+              <button
+                v-if="editingCategoryId"
+                type="button"
+                class="rounded-xl border border-slate-200 px-5 py-3 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
+                @click="resetCategoryForm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div class="mb-5 flex items-center justify-between">
+            <h2 class="text-xl font-black text-[#0f1f4d]">Categories</h2>
+            <p class="text-sm font-bold text-slate-500">{{ categories.length }} items</p>
+          </div>
+
+          <div class="space-y-3">
+            <p
+              v-if="categories.length === 0"
+              class="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500"
+            >
+              No categories yet.
+            </p>
+
+            <div
+              v-for="category in categories"
+              :key="category.category_id"
+              class="flex flex-col gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between"
+            >
+              <div class="flex min-w-0 items-start gap-3">
+                <span
+                  class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-xl shadow-sm"
+                >
+                  {{ category.icon || '📚' }}
+                </span>
+
+                <div class="min-w-0">
+                  <h3 class="font-black text-[#0f1f4d]">{{ category.name }}</h3>
+                  <p class="mt-1 line-clamp-2 text-sm text-slate-500">
+                    {{ category.description || 'No description' }}
+                  </p>
+                  <p class="mt-1 text-xs font-bold text-slate-400">
+                    {{ category.course_count ?? 0 }} courses
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 gap-3">
+                <button
+                  type="button"
+                  class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
+                  @click="startEditCategory(category)"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  :disabled="updatingId === category.category_id"
+                  class="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-black text-red-500 transition hover:bg-red-50 disabled:text-slate-400"
+                  @click="handleDeleteCategory(category)"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section
+        v-else-if="activeTab === 'instructors'"
+        class="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+      >
         <div class="mb-5 flex items-center justify-between">
           <h2 class="text-xl font-black text-[#0f1f4d]">ຜູ້ສອນລໍຖ້າອະນຸມັດ</h2>
           <p class="text-sm font-bold text-slate-500">{{ pendingInstructors.length }} ຄົນ</p>
         </div>
 
-        <p v-if="pendingInstructors.length === 0" class="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+        <p
+          v-if="pendingInstructors.length === 0"
+          class="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500"
+        >
           ຍັງບໍ່ມີຄຳຂໍຜູ້ສອນ
         </p>
 
@@ -501,16 +912,30 @@ onMounted(() => {
           >
             <div>
               <h3 class="font-black text-[#0f1f4d]">{{ payment.course.title }}</h3>
-              <p class="mt-1 text-sm text-slate-500">ນັກຮຽນ: {{ getPaymentStudentName(payment) }}</p>
+              <p class="mt-1 text-sm text-slate-500">
+                ນັກຮຽນ: {{ getPaymentStudentName(payment) }}
+              </p>
             </div>
 
             <div class="text-sm">
               <p class="font-black text-[#f5a400]">{{ formatMoney(payment.amount) }}</p>
               <p class="mt-1 text-slate-500">{{ formatDate(payment.created_at) }}</p>
+              <a
+                v-if="payment.slip_url"
+                :href="resolveFileUrl(payment.slip_url)"
+                target="_blank"
+                rel="noreferrer"
+                class="mt-2 inline-flex text-xs font-black text-[#142b63] underline"
+              >
+                View slip
+              </a>
             </div>
 
             <div class="flex items-center gap-3">
-              <span class="rounded-full px-3 py-1 text-xs font-black" :class="statusClass[payment.status]">
+              <span
+                class="rounded-full px-3 py-1 text-xs font-black"
+                :class="statusClass[payment.status]"
+              >
                 {{ statusLabel[payment.status] }}
               </span>
 
@@ -532,6 +957,15 @@ onMounted(() => {
                   ປະຕິເສດ
                 </button>
               </template>
+
+              <button
+                type="button"
+                :disabled="updatingId === payment.payment_id"
+                class="rounded-xl border border-red-200 px-3 py-2 text-sm font-bold text-red-500 transition hover:bg-red-50 disabled:text-slate-400"
+                @click="handleDeletePayment(payment)"
+              >
+                ລົບ
+              </button>
             </div>
           </article>
         </div>

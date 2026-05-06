@@ -8,6 +8,10 @@ defineProps<{
   firstLessonId: string
   progressPercent: number
   isAlreadyEnrolled: boolean
+  canAccessCourse: boolean
+  requiresPayment: boolean
+  isPaid: boolean
+  hasSubmittedSlip: boolean
   isEnrolling: boolean
   enrollMessage: string
   isPublished: boolean
@@ -47,16 +51,24 @@ defineEmits<{
     <div class="space-y-5 p-6">
       <div>
         <p class="font-number text-4xl font-black text-[#f5a400]">₭{{ price }}</p>
-        <p class="mt-1 text-sm font-bold text-slate-400">Lifetime access</p>
+        <p class="mt-1 text-sm font-bold text-slate-400">ເຂົ້າຮຽນໄດ້ຕະຫຼອດ</p>
       </div>
 
       <div
         v-if="isAlreadyEnrolled"
-        class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+        class="rounded-2xl border p-4"
+        :class="requiresPayment && !isPaid ? 'border-[#f5a400]/30 bg-[#f5a400]/10' : 'border-emerald-200 bg-emerald-50'"
       >
         <div class="flex items-center justify-between gap-3">
-          <p class="text-sm font-black text-emerald-700">ລົງທະບຽນແລ້ວ</p>
-          <p class="text-sm font-black text-emerald-700">{{ progressPercent }}%</p>
+          <p
+            class="text-sm font-black"
+            :class="requiresPayment && !isPaid ? 'text-[#9a6500]' : 'text-emerald-700'"
+          >
+            {{ requiresPayment && !isPaid ? 'ລໍຖ້າແອດມິນອະນຸມັດ' : 'ລົງທະບຽນແລ້ວ' }}
+          </p>
+          <p class="text-sm font-black" :class="requiresPayment && !isPaid ? 'text-[#9a6500]' : 'text-emerald-700'">
+            {{ progressPercent }}%
+          </p>
         </div>
         <div class="mt-3 h-2 overflow-hidden rounded-full bg-white">
           <div
@@ -68,13 +80,32 @@ defineEmits<{
       </div>
 
       <RouterLink
-        v-if="isAlreadyEnrolled && firstLessonId"
+        v-if="canAccessCourse && firstLessonId"
         :to="`/courses/${courseId}/learn/${firstLessonId}`"
         class="flex w-full items-center justify-center gap-3 rounded-xl bg-[#142b63] px-5 py-4 text-center font-black text-white transition hover:bg-[#0e214d]"
       >
         <span>▶</span>
         ເລີ່ມຮຽນ
       </RouterLink>
+
+      <button
+        v-else-if="isAlreadyEnrolled && requiresPayment && !isPaid && hasSubmittedSlip"
+        type="button"
+        disabled
+        class="w-full cursor-not-allowed rounded-xl bg-slate-200 px-5 py-4 text-center font-black text-slate-500"
+      >
+        ລໍຖ້າອະນຸມັດ
+      </button>
+
+      <button
+        v-else-if="isAlreadyEnrolled && requiresPayment && !isPaid"
+        type="button"
+        :disabled="isEnrolling || !isPublished"
+        class="w-full rounded-xl bg-[#f5a400] px-5 py-4 text-center font-black text-slate-950 transition hover:bg-[#f7b733] disabled:cursor-not-allowed disabled:bg-slate-400"
+        @click="$emit('enroll')"
+      >
+        {{ isEnrolling ? 'ກຳລັງດຳເນີນການ...' : 'ອັບໂຫຼດສະລີບ' }}
+      </button>
 
       <button
         v-else
@@ -88,9 +119,12 @@ defineEmits<{
             ? 'ຄອສນີ້ຍັງບໍ່ເປີດສອນ'
             : isEnrolling
               ? 'ກຳລັງດຳເນີນການ...'
-              : 'ຊຳລະ / ລົງທະບຽນ'
+              : requiresPayment
+                ? 'ຊຳລະ / ລົງທະບຽນ'
+                : 'ລົງທະບຽນຟຣີ'
         }}
       </button>
+
 
       <p v-if="enrollMessage" class="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
         {{ enrollMessage }}

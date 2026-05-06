@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { prisma } from "../lib/prisma";
 import { PaymentStatus } from "../../generated/prisma/client";
 
@@ -48,7 +50,7 @@ export const getPaymentByIdService = async (
 export const createPaymentService = async (
     student_id: string,
     course_id: string,
-    payment_method: string,
+    payment_method = "slip",
 ) => {
     // ເຂັກວ່າ course ມີຢູ່ແທ້ບໍ່
     const course = await prisma.course.findUnique({
@@ -98,6 +100,49 @@ export const createPaymentService = async (
     return payment;
 };
 
+export const uploadPaymentSlipService = async (
+    payment_id: string,
+    student_id: string,
+    userRole: string,
+    slip_url: string,
+) => {
+    const payment = await prisma.payment.findUnique({
+        where: { payment_id },
+    });
+
+    if (!payment) throw new Error("PAYMENT_NOT_FOUND");
+
+    if (userRole !== "admin" && payment.student_id !== student_id) {
+        throw new Error("FORBIDDEN");
+    }
+
+    if (payment.status !== "pending") {
+        throw new Error("PAYMENT_NOT_PENDING");
+    }
+
+    return prisma.payment.update({
+        where: { payment_id },
+        data: {
+            slip_url,
+            payment_method: "slip",
+            status: "pending",
+        },
+        include: {
+            student: {
+                include: { profile: true },
+            },
+            course: {
+                include: {
+                    category: true,
+                    instructor: {
+                        include: { profile: true },
+                    },
+                },
+            },
+        },
+    });
+};
+
 export const updatePaymentStatusService = async (
     payment_id: string,
     status: PaymentStatus,
@@ -143,4 +188,27 @@ export const updatePaymentStatusService = async (
             },
         },
     });
+};
+
+export const deletePaymentService = async (payment_id: string) => {
+    const payment = await prisma.payment.findUnique({
+        where: { payment_id },
+    });
+
+    if (!payment) throw new Error("PAYMENT_NOT_FOUND");
+
+    await prisma.payment.delete({
+        where: { payment_id },
+    });
+
+    if (payment.slip_url?.startsWith("/uploads/")) {
+        const relativePath = payment.slip_url.replace(/^\/+/, "");
+        const filePath = path.join(process.cwd(), relativePath);
+
+        if (filePath.startsWith(process.cwd()) && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+    }
+
+    return { payment_id };
 };

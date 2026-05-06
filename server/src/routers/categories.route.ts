@@ -11,8 +11,8 @@ import {
 
 const router = express.Router();
 
-router.get("/category", auth, getCategories);
-router.get("/category/:categoryId", auth, getCategoryById);
+router.get("/category", getCategories);
+router.get("/category/:categoryId", getCategoryById);
 router.post(
     "/category",
     auth,
