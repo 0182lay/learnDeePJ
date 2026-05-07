@@ -1,0 +1,15 @@
+services:
+  db:
+    image: mariadb:11
+    container_name: learndee_db
+    restart: always
+    ports:
+      - "3309:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: lay123
+      MARIADB_DATABASE: learndee
+    volumes:
+      - learndee_db_data:/var/lib/mysql
+
+volumes:
+  learndee_db_data:
