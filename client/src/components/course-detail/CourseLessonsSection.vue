@@ -37,28 +37,8 @@ const formatDuration = (seconds: number | null | undefined) => {
 </script>
 
 <template>
-  <section class="bg-white px-8 py-14 lg:px-20 2xl:px-28">
+  <section class="bg-white px-8 py-10 lg:px-20 2xl:px-28">
     <div class="mx-auto max-w-[1700px]">
-      <div class="mb-8 rounded-2xl border border-[#f5a400]/30 bg-[#fffaf0] p-7">
-        <h2 class="text-2xl font-black text-slate-950">ສິ່ງທີ່ທ່ານຈະໄດ້ຮຽນຮູ້</h2>
-
-        <div class="mt-5 grid gap-3 text-sm font-bold text-slate-600 md:grid-cols-2">
-          <p>✓ ເຂົ້າໃຈເນື້ອຫາຫຼັກຂອງຄອສ</p>
-          <p>✓ ຝຶກຈາກວິດີໂອທີ່ຜູ້ສອນອັບໂຫຼດ</p>
-          <p>✓ ຮຽນຕາມລຳດັບບົດຮຽນ</p>
-          <p>✓ ຕິດຕາມຄວາມຄືບໜ້າຂອງຕົນເອງ</p>
-        </div>
-      </div>
-
-      <div class="mb-6 inline-flex rounded-xl bg-slate-200/70 p-1">
-        <button type="button" class="rounded-lg bg-white px-4 py-2 text-sm font-black text-[#142b63] shadow-sm">
-          ບົດຮຽນ
-        </button>
-        <button type="button" class="px-4 py-2 text-sm font-bold text-slate-500">ສິ່ງທີ່ຕ້ອງມີ</button>
-        <button type="button" class="px-4 py-2 text-sm font-bold text-slate-500">ຣີວິວ</button>
-        <button type="button" class="px-4 py-2 text-sm font-bold text-slate-500">FAQ</button>
-      </div>
-
       <p v-if="lessons.length === 0" class="rounded-2xl bg-slate-50 px-5 py-6 text-slate-500">
         ຍັງບໍ່ມີບົດຮຽນໃນຄອສນີ້
       </p>
@@ -97,7 +77,9 @@ const formatDuration = (seconds: number | null | undefined) => {
               <span v-if="firstVideo(lesson)?.duration_seconds">
                 · {{ formatDuration(firstVideo(lesson)?.duration_seconds) }}
               </span>
-              <span v-if="lesson.lesson_type === 'video' && !firstVideo(lesson)">· ຍັງບໍ່ມີວິດີໂອ</span>
+              <span v-if="lesson.lesson_type === 'video' && !firstVideo(lesson)">
+                · ຍັງບໍ່ມີວິດີໂອ
+              </span>
             </p>
           </div>
 

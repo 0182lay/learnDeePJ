@@ -6,6 +6,8 @@ export type Course = {
   thumbnail_url: string | null
   level: string | null
   is_published: boolean
+  average_rating?: number
+  review_count?: number
   created_at?: string
   updated_at?: string
   category?: {

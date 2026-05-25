@@ -7,10 +7,12 @@ import { getLessonsByCourseId } from '../api/lessonApi'
 import { createPayment, getMyPayments, uploadPaymentSlip } from '../api/paymentApi'
 import { getProgress, updateProgress } from '../api/progressApi'
 import { getCourseById } from '../api/courseApi'
+import CourseFaqSection from '../components/course-detail/CourseFaqSection.vue'
 import CourseDetailStats from '../components/course-detail/CourseDetailStats.vue'
-import CourseExtraSections from '../components/course-detail/CourseExtraSections.vue'
 import CourseLessonsSection from '../components/course-detail/CourseLessonsSection.vue'
+import CourseOutcomesSection from '../components/course-detail/CourseOutcomesSection.vue'
 import CoursePurchaseCard from '../components/course-detail/CoursePurchaseCard.vue'
+import CourseReviewsSection from '../components/course-detail/CourseReviewsSection.vue'
 import PaymentDialog from '../components/payment/PaymentDialog.vue'
 import type { CourseDetail } from '../types/course'
 import type { MyEnrollment } from '../types/enrollment'
@@ -32,6 +34,14 @@ const currentEnrollment = ref<MyEnrollment | null>(null)
 const currentEnrollmentId = ref('')
 const progressList = ref<LearningProgress[]>([])
 const showPaymentDialog = ref(false)
+const activeDetailTab = ref<'lessons' | 'outcomes' | 'reviews' | 'faq'>('lessons')
+
+const detailTabs = [
+  { key: 'lessons', label: 'ບົດຮຽນ' },
+  { key: 'outcomes', label: 'ສິ່ງທີ່ຈະໄດ້ຮັບ' },
+  { key: 'reviews', label: 'ຣີວິວ' },
+  { key: 'faq', label: 'FAQ' },
+] as const
 
 const formatPrice = (price: string) => {
   const numberPrice = Number(String(price).replace(/,/g, ''))
@@ -60,6 +70,15 @@ const instructorName = computed(() => {
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
 
   return fullName || course.value?.instructor.email || 'ຜູ້ສອນ'
+})
+
+const courseRatingText = computed(() => {
+  return course.value?.review_count ? (course.value.average_rating || 0).toFixed(1) : '0.0'
+})
+
+const courseReviewText = computed(() => {
+  const count = course.value?.review_count || 0
+  return count > 0 ? `${count} ຣີວິວ` : 'ຍັງບໍ່ມີຣີວິວ'
 })
 
 const refreshEnrollmentState = async (courseId: string) => {
@@ -274,7 +293,8 @@ onMounted(() => {
               </p>
 
               <div class="mt-6 flex flex-wrap items-center gap-5 text-sm font-bold text-white/85">
-                <span class="text-[#f5a400]">★★★★★ <span class="text-white">4.5</span></span>
+                <span class="text-[#f5a400]">★★★★★ <span class="text-white">{{ courseRatingText }}</span></span>
+                <span>{{ courseReviewText }}</span>
                 <span>ບົດຮຽນ {{ lessons.length }}</span>
                 <span>{{ course.category.name }}</span>
               </div>
@@ -324,7 +344,29 @@ onMounted(() => {
         </div>
       </section>
 
+      <section class="bg-white px-8 pt-10 lg:px-20 2xl:px-28">
+        <div class="mx-auto max-w-[1700px]">
+          <div class="inline-flex rounded-xl bg-slate-200/70 p-1">
+            <button
+              v-for="tab in detailTabs"
+              :key="tab.key"
+              type="button"
+              class="rounded-lg px-4 py-2 text-sm transition"
+              :class="
+                activeDetailTab === tab.key
+                  ? 'bg-white font-black text-[#142b63] shadow-sm'
+                  : 'font-bold text-slate-500 hover:text-[#142b63]'
+              "
+              @click="activeDetailTab = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <CourseLessonsSection
+        v-if="activeDetailTab === 'lessons'"
         :course-id="course.course_id"
         :lessons="lessons"
         :current-enrollment-id="currentEnrollmentId"
@@ -332,10 +374,16 @@ onMounted(() => {
         @complete-lesson="handleCompleteLesson"
       />
 
-      <CourseExtraSections
-        :course="course"
-        :instructor-name="instructorName"
+      <CourseOutcomesSection v-else-if="activeDetailTab === 'outcomes'" />
+
+      <CourseReviewsSection
+        v-else-if="activeDetailTab === 'reviews'"
+        :course-id="course.course_id"
+        :can-review="isAlreadyEnrolled"
+        @updated="fetchCourse"
       />
+
+      <CourseFaqSection v-else-if="activeDetailTab === 'faq'" />
 
       <PaymentDialog
         :open="showPaymentDialog"

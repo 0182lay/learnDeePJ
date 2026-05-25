@@ -7,9 +7,9 @@ const authStore = useAuthStore()
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 border-b border-slate-100 bg-white">
+  <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_0_rgba(15,31,77,0.03)] backdrop-blur">
     <div
-      class="mx-auto grid h-[50px] max-w-[1700px] grid-cols-[1fr_auto_1fr] items-center px-8 lg:px-20 2xl:px-28"
+      class="mx-auto grid h-[64px] max-w-[1700px] grid-cols-[1fr_auto_1fr] items-center px-6 sm:px-8 lg:px-20 2xl:px-28"
     >
       <RouterLink to="/" class="flex items-center gap-3 justify-self-start">
         <img :src="logoUrl" alt="LearnDeepJ" class="h-8 w-auto" />
@@ -20,20 +20,20 @@ const authStore = useAuthStore()
         </p>
       </RouterLink>
 
-      <nav class="hidden items-center gap-12 text-sm font-bold text-slate-500 md:flex">
-        <RouterLink to="/" class="transition hover:text-[#142b63]">ໜ້າຫຼັກ</RouterLink>
-        <RouterLink to="/courses" class="transition hover:text-[#142b63]">ຄອສຮຽນ</RouterLink>
+      <nav class="hidden items-center gap-10 text-sm font-bold text-slate-500 md:flex">
+        <RouterLink to="/" class="rounded-full px-2 py-1 transition hover:bg-slate-50 hover:text-[#142b63]">ໜ້າຫຼັກ</RouterLink>
+        <RouterLink to="/courses" class="rounded-full px-2 py-1 transition hover:bg-slate-50 hover:text-[#142b63]">ຄອສຮຽນ</RouterLink>
         <RouterLink
           v-if="authStore.isLoggedIn"
           to="/dashboard"
-          class="transition hover:text-[#142b63]"
+          class="rounded-full px-2 py-1 transition hover:bg-slate-50 hover:text-[#142b63]"
         >
           Dashboard
         </RouterLink>
         <RouterLink
           v-if="authStore.user?.role === 'instructor' || authStore.user?.role === 'admin'"
           to="/courses/create"
-          class="transition hover:text-[#142b63]"
+          class="rounded-full px-2 py-1 transition hover:bg-slate-50 hover:text-[#142b63]"
         >
           ສ້າງຄອສ
         </RouterLink>
@@ -43,13 +43,13 @@ const authStore = useAuthStore()
         <NavbarUserMenu v-if="authStore.isLoggedIn" />
 
         <div v-else class="flex items-center gap-3">
-          <RouterLink to="/login" class="hidden text-sm font-bold text-[#142b63] sm:block">
+          <RouterLink to="/login" class="hidden rounded-full px-3 py-2 text-sm font-bold text-[#142b63] transition hover:bg-slate-50 sm:block">
             ເຂົ້າສູ່ລະບົບ
           </RouterLink>
 
           <RouterLink
             to="/register"
-            class="rounded-xl bg-[#142b63] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#0e214d]"
+            class="rounded-full bg-[#142b63] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0e214d] hover:shadow-md"
           >
             ລົງທະບຽນ
           </RouterLink>

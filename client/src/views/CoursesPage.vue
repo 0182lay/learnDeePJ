@@ -88,12 +88,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-[#f8fafc]">
+  <main class="soft-page min-h-screen">
     <CoursesHero v-model="searchText" />
     <CoursesStats />
 
-    <section class="mx-auto max-w-[1700px] px-8 py-8 lg:px-20 2xl:px-28">
-      <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
+    <section class="mx-auto max-w-[1700px] px-6 py-7 sm:px-8 lg:px-20 2xl:px-28">
+      <div class="flex flex-col gap-7 lg:flex-row lg:items-start">
         <CoursesFilterSidebar
           v-model:selected-category="selectedCategory"
           v-model:selected-level="selectedLevel"
@@ -113,7 +113,7 @@ onMounted(() => {
             <label class="flex items-center gap-3 text-sm font-bold text-slate-500">
               ຈັດຮຽງ
               <select
-                class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-[#142b63] outline-none"
+                class="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#142b63] shadow-sm outline-none transition focus:border-[#f5a400]"
               >
                 <option>ຍອດນິຍົມ</option>
                 <option>ໃໝ່ລ່າສຸດ</option>

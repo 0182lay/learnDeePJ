@@ -11,16 +11,16 @@ defineProps<{
 
 <template>
   <section>
-    <p v-if="isLoading" class="rounded-2xl bg-white px-5 py-6 text-slate-500 shadow-sm">
+    <p v-if="isLoading" class="rounded-[14px] bg-white px-5 py-6 text-slate-500 shadow-sm">
       Loading...
     </p>
 
-    <p v-else-if="errorMessage" class="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600">
+    <p v-else-if="errorMessage" class="rounded-[14px] bg-red-50 px-5 py-4 text-sm text-red-600">
       {{ errorMessage }}
     </p>
 
-    <div v-else class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-      <p v-if="courses.length === 0" class="rounded-2xl bg-white px-5 py-6 text-slate-500 shadow-sm">
+    <div v-else class="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
+      <p v-if="courses.length === 0" class="rounded-[14px] bg-white px-5 py-6 text-slate-500 shadow-sm">
         ບໍ່ພົບຄອສທີ່ກົງກັບການຄົ້ນຫາ
       </p>
 
@@ -30,7 +30,7 @@ defineProps<{
         :to="`/courses/${course.course_id}`"
         class="block"
       >
-        <CourseCard :course="course" />
+        <CourseCard :course="course" variant="courses" />
       </RouterLink>
     </div>
   </section>

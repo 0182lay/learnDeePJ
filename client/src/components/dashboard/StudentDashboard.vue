@@ -333,7 +333,7 @@ onMounted(() => {
             class="card-soft flex flex-col gap-4 p-4 md:flex-row md:items-center"
           >
             <img
-              :src="enrollment.course.thumbnail_url || fallbackCourseImage"
+              :src="enrollment.course.thumbnail_url ? resolveFileUrl(enrollment.course.thumbnail_url) : fallbackCourseImage"
               :alt="enrollment.course.title"
               class="h-24 w-full rounded-xl object-cover md:w-40"
             />

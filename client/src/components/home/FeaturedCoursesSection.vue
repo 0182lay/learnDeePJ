@@ -29,8 +29,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="bg-[#f8fafc] pb-16 pt-10">
-    <div class="mx-auto max-w-[1700px] px-8 lg:px-20 2xl:px-28">
+  <section class="soft-page pb-16 pt-10">
+    <div class="mx-auto max-w-[1700px] px-6 sm:px-8 lg:px-20 2xl:px-28">
       <div class="flex items-end justify-between gap-4">
         <div>
           <h2 class="text-2xl font-black text-[#142b63]">ຄອສຍອດນິຍົມ</h2>
@@ -39,7 +39,7 @@ onMounted(() => {
 
         <RouterLink
           to="/courses"
-          class="hidden rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-[#142b63] transition hover:border-[#142b63] md:inline-flex"
+          class="hidden rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-[#142b63] shadow-sm transition hover:border-[#142b63]/35 hover:shadow-md md:inline-flex"
         >
           ເບິ່ງທັງໝົດ
         </RouterLink>
@@ -50,7 +50,7 @@ onMounted(() => {
         {{ errorMessage }}
       </p>
 
-      <div v-else class="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div v-else class="mt-8 grid gap-7 md:grid-cols-2 xl:grid-cols-3">
         <p v-if="courses.length === 0" class="text-slate-500">ຍັງບໍ່ມີຄອສໃຫ້ສະແດງ</p>
 
         <RouterLink

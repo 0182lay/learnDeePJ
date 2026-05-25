@@ -47,24 +47,24 @@ const handleLogout = () => {
   <div class="relative">
     <button
       type="button"
-      class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-1.5 py-1 shadow-sm transition hover:border-[#142b63]/30"
+      class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition hover:border-[#142b63]/30 hover:shadow-md"
       @click="isOpen = !isOpen"
     >
       <img
         v-if="avatarUrl"
         :src="resolveFileUrl(avatarUrl)"
         :alt="displayName"
-        class="h-7 w-7 rounded-full object-cover"
+        class="h-8 w-8 rounded-full object-cover"
       />
-      <span v-else class="grid h-7 w-7 place-items-center rounded-full bg-[#142b63] text-[10px] font-black text-white">
+      <span v-else class="grid h-8 w-8 place-items-center rounded-full bg-[#142b63] text-[10px] font-black text-white">
         {{ initials }}
       </span>
 
-      <span class="hidden max-w-[120px] truncate text-xs font-black text-slate-700 sm:block">
+      <span class="hidden max-w-[140px] truncate text-sm font-bold text-slate-700 sm:block">
         {{ displayName }}
       </span>
 
-      <span class="hidden rounded-full bg-[#f5a400]/15 px-2 py-0.5 text-[10px] font-bold text-[#b87900] sm:block">
+      <span class="hidden rounded-full bg-[#f5a400]/15 px-2.5 py-1 text-[10px] font-bold text-[#b87900] sm:block">
         {{ authStore.user?.role || 'student' }}
       </span>
     </button>

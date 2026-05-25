@@ -49,16 +49,16 @@ const isCollapsed = ref(false)
 
 <template>
   <aside
-    class="overflow-hidden border border-slate-200 bg-white shadow-sm transition-all duration-300"
-    :class="isCollapsed ? 'w-[54px] rounded-[18px]' : 'w-full rounded-2xl lg:w-[260px]'"
+    class="overflow-hidden border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,31,77,0.04),0_14px_30px_rgba(15,31,77,0.06)] transition-all duration-300"
+    :class="isCollapsed ? 'w-[54px] rounded-[16px]' : 'w-full rounded-[14px] lg:w-[270px]'"
   >
     <button
       type="button"
-      class="flex w-full items-center border-b border-slate-200 transition hover:bg-slate-50"
-      :class="isCollapsed ? 'h-14 justify-center px-0' : 'justify-between px-4 py-4'"
+      class="flex w-full items-center border-b border-slate-200/80 transition hover:bg-slate-50"
+      :class="isCollapsed ? 'h-14 justify-center px-0' : 'justify-between px-5 py-4'"
       @click="isCollapsed = !isCollapsed"
     >
-      <h2 v-if="!isCollapsed" class="text-base font-semibold text-slate-950">ຕົວກອງ</h2>
+      <h2 v-if="!isCollapsed" class="text-base font-bold text-slate-950">ຕົວກອງ</h2>
 
       <span
         class="text-2xl font-semibold leading-none text-slate-950 transition"
@@ -105,10 +105,16 @@ const isCollapsed = ref(false)
       </button>
     </div>
 
-    <div v-else class="sidebar-scroll max-h-[430px] space-y-5 overflow-y-scroll p-3.5 pr-1">
+    <div v-else class="sidebar-scroll max-h-[470px] space-y-5 overflow-y-auto p-4 pr-2">
       <section>
         <p class="mb-3 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="M20.6 13.6 13.6 20.6a2 2 0 0 1-2.8 0L3 12.8V4h8.8l8.8 8.8a2 2 0 0 1 0 2.8Z" />
             <path d="M7.5 7.5h.01" />
           </svg>
@@ -120,39 +126,45 @@ const isCollapsed = ref(false)
             v-for="category in categoryOptions"
             :key="category.value"
             type="button"
-            class="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm font-medium transition"
+            class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-[200] transition"
             :class="
               selectedCategory === category.value
-                ? 'bg-[#142b63] text-white'
+                ? 'bg-[#142b63] text-white shadow-sm'
                 : 'text-slate-500 hover:bg-slate-50 hover:text-[#142b63]'
             "
             @click="emit('update:selectedCategory', category.value)"
           >
-            <span class="flex min-w-0 items-center gap-3">
-              <span class="text-base leading-none">{{ category.icon }}</span>
+            <span class="flex min-w-0 items-center gap-2.5">
+              <span class="text-[15px] leading-none">{{ category.icon }}</span>
               <span class="truncate">{{ category.label }}</span>
             </span>
 
-            <span class="text-xs opacity-70">{{ category.count }}</span>
+            <span class="text-xs font-bold opacity-70">{{ category.count }}</span>
           </button>
         </div>
       </section>
 
       <section>
         <p class="mb-3 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path d="m22 10-10-5-10 5 10 5 10-5Z" />
             <path d="M6 12.5v4c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4" />
           </svg>
           ລະດັບ
         </p>
 
-        <div class="grid grid-cols-4 gap-1.5">
+        <div class="grid grid-cols-2 gap-2">
           <button
             v-for="level in levels"
             :key="level.value"
             type="button"
-            class="rounded-full border px-1.5 py-1.5 text-xs font-medium transition"
+            class="rounded-full border px-3 py-2 text-xs font-semibold transition"
             :class="
               selectedLevel === level.value
                 ? 'border-[#142b63] bg-[#142b63] text-white'
@@ -167,8 +179,16 @@ const isCollapsed = ref(false)
 
       <section>
         <p class="mb-3 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="m12 2.8 2.8 5.7 6.3.9-4.5 4.4 1 6.2-5.6-3-5.6 3 1-6.2-4.5-4.4 6.3-.9L12 2.8Z" />
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="m12 2.8 2.8 5.7 6.3.9-4.5 4.4 1 6.2-5.6-3-5.6 3 1-6.2-4.5-4.4 6.3-.9L12 2.8Z"
+            />
           </svg>
           ລາຄາ
         </p>
@@ -178,7 +198,7 @@ const isCollapsed = ref(false)
             v-for="price in prices"
             :key="price.value"
             type="button"
-            class="rounded-full border px-3 py-1.5 text-xs font-medium transition"
+            class="rounded-full border px-3.5 py-2 text-xs font-semibold transition"
             :class="
               selectedPrice === price.value
                 ? 'border-[#142b63] bg-[#142b63] text-white'
@@ -198,33 +218,30 @@ const isCollapsed = ref(false)
 .sidebar-scroll {
   scrollbar-gutter: stable;
   scrollbar-width: auto;
-  scrollbar-color: #777777 #f1f5f9;
+  scrollbar-color: #8a8a8a transparent;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
-  width: 14px;
+  width: 12px;
 }
 
 .sidebar-scroll::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-left: 1px solid #e2e8f0;
+  background: transparent;
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #777777;
+  background: #8a8a8a;
   border-radius: 999px;
-  border: 4px solid #f1f5f9;
-  background-clip: content-box;
+  border: 3px solid #ffffff;
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #5f5f5f;
-  background-clip: content-box;
+  background: #707070;
 }
 
 .sidebar-scroll::-webkit-scrollbar-button:single-button {
   display: block;
-  height: 14px;
+  height: 12px;
   background: transparent;
 }
 
@@ -236,7 +253,7 @@ const isCollapsed = ref(false)
 
 .sidebar-scroll::-webkit-scrollbar-button:single-button:vertical:increment {
   background:
-    linear-gradient(45deg, transparent 50%, #9a9a9a 50%) 3px 3px / 6px 6px no-repeat,
-    linear-gradient(315deg, transparent 50%, #9a9a9a 50%) 7px 3px / 6px 6px no-repeat;
+    linear-gradient(45deg, transparent 50%, #9a9a9a 50%) 3px 2px / 6px 6px no-repeat,
+    linear-gradient(315deg, transparent 50%, #9a9a9a 50%) 7px 2px / 6px 6px no-repeat;
 }
 </style>
