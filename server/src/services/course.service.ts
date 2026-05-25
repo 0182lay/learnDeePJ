@@ -9,6 +9,28 @@ const normalizePrice = (price?: string | number) => {
     return String(price).replace(/,/g, "");
 };
 
+type CourseWithReviews = {
+    reviews?: {
+        rating: number;
+    }[];
+};
+
+const attachReviewStats = <T extends CourseWithReviews>(course: T) => {
+    const reviews = course.reviews ?? [];
+    const reviewCount = reviews.length;
+    const averageRating =
+        reviewCount > 0
+            ? Number((reviews.reduce((total, review) => total + review.rating, 0) / reviewCount).toFixed(1))
+            : 0;
+    const { reviews: _reviews, ...courseData } = course;
+
+    return {
+        ...courseData,
+        average_rating: averageRating,
+        review_count: reviewCount,
+    };
+};
+
 export const getCoursesService = async () => {
     const courses = await prisma.course.findMany({
         where: {
@@ -21,9 +43,14 @@ export const getCoursesService = async () => {
                     profile: true,
                 },
             },
+            reviews: {
+                select: {
+                    rating: true,
+                },
+            },
         },
     });
-    return courses;
+    return courses.map(attachReviewStats);
 };
 
 export const getMyCoursesService = async (instructor_id: string, userRole: string) => {
@@ -36,13 +63,18 @@ export const getMyCoursesService = async (instructor_id: string, userRole: strin
                     profile: true,
                 },
             },
+            reviews: {
+                select: {
+                    rating: true,
+                },
+            },
         },
         orderBy: {
             created_at: "desc",
         },
     });
 
-    return courses;
+    return courses.map(attachReviewStats);
 };
 
 export const getCoursesByIdService = async (course_id: string) => {
@@ -55,12 +87,17 @@ export const getCoursesByIdService = async (course_id: string) => {
                     profile: true,
                 },
             },
+            reviews: {
+                select: {
+                    rating: true,
+                },
+            },
         },
     });
 
     if (!course) throw new Error("COURSE_NOT_FOUND");
 
-    return course;
+    return attachReviewStats(course);
 };
 
 export const createCourseService = async (

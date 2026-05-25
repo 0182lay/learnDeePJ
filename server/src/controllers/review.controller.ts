@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import {
     getReviewsService,
+    getReviewStatsService,
     createReviewService,
     updateReviewService,
     deleteReviewService,
@@ -9,101 +10,101 @@ import {
 export const getReviews = async (req: Request, res: Response) => {
     try {
         const courseId = req.params.courseId as string;
-        const reviews = await getReviewsService(courseId);
-        return res
-            .status(200)
-            .json({ message: "ດຶງຂໍ້ມູນສຳເລັດ", data: reviews });
+        const [reviews, stats] = await Promise.all([
+            getReviewsService(courseId),
+            getReviewStatsService(courseId),
+        ]);
+
+        return res.status(200).json({
+            message: "Reviews loaded",
+            data: {
+                reviews,
+                stats,
+            },
+        });
     } catch (error: any) {
         if (error.message === "COURSE_NOT_FOUND") {
-            return res.status(404).json({ message: "ບໍ່ພົບ Course" });
+            return res.status(404).json({ message: "Course not found" });
         }
-        return res.status(500).json({ message: "ດຶງຂໍ້ມູນ Review ບໍ່ສຳເລັດ" });
+
+        return res.status(500).json({ message: "Load reviews failed" });
     }
 };
 
 export const createReview = async (req: Request, res: Response) => {
     try {
         const courseId = req.params.courseId as string;
-        const student_id = (req as any).user?.user?.id;
-        const { rating, comment } = req.body;
+        const studentId = (req as any).user?.user?.id;
+        const rating = Number(req.body.rating);
+        const comment = req.body.comment as string | undefined;
 
-        const review = await createReviewService(courseId, student_id, {
+        const review = await createReviewService(courseId, studentId, {
             rating,
             comment,
         });
 
-        return res.status(201).json({ message: "ຣີວິວສຳເລັດ", data: review });
+        return res.status(201).json({ message: "Review saved", data: review });
     } catch (error: any) {
         if (error.message === "COURSE_NOT_FOUND") {
-            return res.status(404).json({ message: "ບໍ່ພົບ Course" });
+            return res.status(404).json({ message: "Course not found" });
         }
         if (error.message === "NOT_ENROLLED") {
-            return res.status(400).json({ message: "ຕ້ອງລົງທະບຽນກ່ອນຣີວິວ" });
-        }
-        if (error.message === "ALREADY_REVIEWED") {
-            return res.status(400).json({ message: "ຣີວິວໄປແລ້ວ" });
+            return res.status(400).json({ message: "Enroll before reviewing this course" });
         }
         if (error.message === "INVALID_RATING") {
-            return res
-                .status(400)
-                .json({ message: "Rating ຕ້ອງຢູ່ລະຫວ່າງ 1-5" });
+            return res.status(400).json({ message: "Rating must be 1-5" });
         }
-        return res.status(500).json({ message: "ຣີວິວບໍ່ສຳເລັດ" });
+
+        return res.status(500).json({ message: "Save review failed" });
     }
 };
 
 export const updateReview = async (req: Request, res: Response) => {
     try {
         const reviewId = req.params.reviewId as string;
-        const student_id = (req as any).user?.user?.id;
+        const studentId = (req as any).user?.user?.id;
         const userRole = (req as any).user?.user?.role;
-        const { rating, comment } = req.body;
+        const rating = req.body.rating === undefined ? undefined : Number(req.body.rating);
+        const comment = req.body.comment as string | undefined;
 
-        const review = await updateReviewService(
-            reviewId,
-            student_id,
-            userRole,
-            {
-                rating,
-                comment,
-            },
-        );
+        const review = await updateReviewService(reviewId, studentId, userRole, {
+            rating,
+            comment,
+        });
 
-        return res
-            .status(200)
-            .json({ message: "ອັບເດດ Review ສຳເລັດ", data: review });
+        return res.status(200).json({ message: "Review updated", data: review });
     } catch (error: any) {
         if (error.message === "REVIEW_NOT_FOUND") {
-            return res.status(404).json({ message: "ບໍ່ພົບ Review" });
+            return res.status(404).json({ message: "Review not found" });
         }
         if (error.message === "FORBIDDEN") {
-            return res.status(403).json({ message: "ບໍ່ມີສິດແກ້ໄຂ Review" });
+            return res.status(403).json({ message: "No permission to edit this review" });
         }
         if (error.message === "INVALID_RATING") {
-            return res
-                .status(400)
-                .json({ message: "Rating ຕ້ອງຢູ່ລະຫວ່າງ 1-5" });
+            return res.status(400).json({ message: "Rating must be 1-5" });
         }
-        return res.status(500).json({ message: "ອັບເດດ Review ບໍ່ສຳເລັດ" });
+
+        return res.status(500).json({ message: "Update review failed" });
     }
 };
 
 export const deleteReview = async (req: Request, res: Response) => {
     try {
         const reviewId = req.params.reviewId as string;
-        const student_id = (req as any).user?.user?.id;
+        const studentId = (req as any).user?.user?.id;
         const userRole = (req as any).user?.user?.role;
 
-        await deleteReviewService(reviewId, student_id, userRole);
+        await deleteReviewService(reviewId, studentId, userRole);
 
-        return res.status(200).json({ message: "ລົບ Review ສຳເລັດ" });
+        return res.status(200).json({ message: "Review deleted" });
     } catch (error: any) {
         if (error.message === "REVIEW_NOT_FOUND") {
-            return res.status(404).json({ message: "ບໍ່ພົບ Review" });
+            return res.status(404).json({ message: "Review not found" });
         }
         if (error.message === "FORBIDDEN") {
-            return res.status(403).json({ message: "ບໍ່ມີສິດລົບ Review" });
+            return res.status(403).json({ message: "No permission to delete this review" });
         }
-        return res.status(500).json({ message: "ລົບ Review ບໍ່ສຳເລັດ" });
+
+        return res.status(500).json({ message: "Delete review failed" });
     }
 };

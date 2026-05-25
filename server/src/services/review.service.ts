@@ -1,5 +1,11 @@
 import { prisma } from "../lib/prisma";
 
+const validateRating = (rating: number) => {
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        throw new Error("INVALID_RATING");
+    }
+};
+
 export const getReviewsService = async (course_id: string) => {
     const course = await prisma.course.findUnique({
         where: { course_id },
@@ -7,7 +13,7 @@ export const getReviewsService = async (course_id: string) => {
 
     if (!course) throw new Error("COURSE_NOT_FOUND");
 
-    const reviews = await prisma.courseReview.findMany({
+    return prisma.courseReview.findMany({
         where: { course_id },
         include: {
             student: {
@@ -16,8 +22,23 @@ export const getReviewsService = async (course_id: string) => {
         },
         orderBy: { created_at: "desc" },
     });
+};
 
-    return reviews;
+export const getReviewStatsService = async (course_id: string) => {
+    const result = await prisma.courseReview.aggregate({
+        where: { course_id },
+        _avg: {
+            rating: true,
+        },
+        _count: {
+            review_id: true,
+        },
+    });
+
+    return {
+        average_rating: Number((result._avg.rating ?? 0).toFixed(1)),
+        review_count: result._count.review_id,
+    };
 };
 
 export const createReviewService = async (
@@ -28,14 +49,12 @@ export const createReviewService = async (
         comment?: string;
     },
 ) => {
-    // ເຊັກວ່າ course ມີຢູ່ແທ້ບໍ່
     const course = await prisma.course.findUnique({
         where: { course_id },
     });
 
     if (!course) throw new Error("COURSE_NOT_FOUND");
 
-    // ເຊັກວ່າ student ລົງທະບຽນ course ນີ້ແລ້ວບໍ່
     const enrollment = await prisma.enrollment.findUnique({
         where: {
             student_id_course_id: { student_id, course_id },
@@ -44,29 +63,28 @@ export const createReviewService = async (
 
     if (!enrollment) throw new Error("NOT_ENROLLED");
 
-    // ເຊັກວ່າ review ໄປແລ້ວ ຫຼື ບໍ
-    const existing = await prisma.courseReview.findUnique({
+    validateRating(data.rating);
+
+    return prisma.courseReview.upsert({
         where: {
             course_id_student_id: { course_id, student_id },
         },
-    });
-
-    if (existing) throw new Error("ALREADY_REVIEWED");
-
-    // ເຊັກ rating ຕ້ອງຢູ່ລະຫວ່າງ 1-5
-    if (data.rating < 1 || data.rating > 5) {
-        throw new Error("INVALID_RATING");
-    }
-
-    const review = await prisma.courseReview.create({
-        data: {
+        create: {
             course_id,
             student_id,
-            ...data,
+            rating: data.rating,
+            comment: data.comment,
+        },
+        update: {
+            rating: data.rating,
+            comment: data.comment,
+        },
+        include: {
+            student: {
+                include: { profile: true },
+            },
         },
     });
-
-    return review;
 };
 
 export const updateReviewService = async (
@@ -84,22 +102,23 @@ export const updateReviewService = async (
 
     if (!review) throw new Error("REVIEW_NOT_FOUND");
 
-    // ເຊັກ ownership
     if (userRole !== "admin" && review.student_id !== student_id) {
         throw new Error("FORBIDDEN");
     }
 
-    // ເຊັກ rating ຕ້ອງຢູ່ລະຫວ່າງ 1-5
-    if (data.rating && (data.rating < 1 || data.rating > 5)) {
-        throw new Error("INVALID_RATING");
+    if (data.rating !== undefined) {
+        validateRating(data.rating);
     }
 
-    const updated = await prisma.courseReview.update({
+    return prisma.courseReview.update({
         where: { review_id },
         data,
+        include: {
+            student: {
+                include: { profile: true },
+            },
+        },
     });
-
-    return updated;
 };
 
 export const deleteReviewService = async (
@@ -113,7 +132,6 @@ export const deleteReviewService = async (
 
     if (!review) throw new Error("REVIEW_NOT_FOUND");
 
-    // ເຊັກວ່າ ownership
     if (userRole !== "admin" && review.student_id !== student_id) {
         throw new Error("FORBIDDEN");
     }
@@ -122,5 +140,5 @@ export const deleteReviewService = async (
         where: { review_id },
     });
 
-    return { message: "ລົບ Review ສຳເລັດ" };
+    return { message: "Review deleted" };
 };

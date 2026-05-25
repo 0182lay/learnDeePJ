@@ -9,7 +9,7 @@ import { auth } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 
-router.get("/courses/:courseId/reviews", auth, getReviews);
+router.get("/courses/:courseId/reviews", getReviews);
 
 router.post("/courses/:courseId/reviews", auth, createReview);
 
