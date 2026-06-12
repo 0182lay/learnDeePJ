@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { API_URL } from './config'
 
 export const http = axios.create({
-  baseURL: 'http://localhost:3003/api',
+  baseURL: API_URL,
   timeout: 30000,
 })
 
@@ -22,9 +23,10 @@ http.interceptors.response.use(
       localStorage.removeItem('user')
 
       const currentPath = `${window.location.pathname}${window.location.search}`
-      const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/register'
+      const publicPaths = ['/', '/courses', '/login', '/register']
+      const isPublicPage = publicPaths.includes(window.location.pathname)
 
-      if (!isAuthPage) {
+      if (!isPublicPage) {
         window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`
       }
     }

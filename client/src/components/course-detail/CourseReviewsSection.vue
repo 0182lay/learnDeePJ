@@ -32,6 +32,13 @@ const displayRating = computed(() => {
   return stats.value.review_count > 0 ? stats.value.average_rating.toFixed(1) : '0.0'
 })
 
+const ratingPercent = (star: number) => {
+  if (!stats.value.review_count) return 0
+
+  const ratio = Math.max(0, 1 - Math.abs(Number(displayRating.value) - star) / 5)
+  return Math.round(ratio * 100)
+}
+
 const canDeleteReviews = computed(() => {
   return authStore.user?.role === 'admin'
 })
@@ -118,16 +125,25 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="bg-white px-8 pb-16 lg:px-20 2xl:px-28">
-    <div class="mx-auto max-w-[1700px]">
-      <div class="grid gap-6 xl:grid-cols-[380px_1fr]">
-        <aside class="rounded-2xl border border-slate-200 bg-[#f8fafc] p-6">
+  <section>
+      <div class="grid gap-6 xl:grid-cols-[340px_1fr]">
+        <aside class="rounded-xl border border-slate-200 bg-muted p-6">
           <p class="text-sm font-black uppercase tracking-wide text-[#f5a400]">Course reviews</p>
           <div class="mt-4 flex items-end gap-3">
-            <p class="font-number text-5xl font-black text-[#142b63]">{{ displayRating }}</p>
+            <p class="font-number text-5xl font-black text-[#294a78]">{{ displayRating }}</p>
             <div class="pb-2">
               <p class="text-lg font-black text-[#f5a400]">★★★★★</p>
               <p class="text-sm font-bold text-slate-500">{{ stats.review_count }} ຣີວິວ</p>
+            </div>
+          </div>
+
+          <div class="mt-5 space-y-2">
+            <div v-for="star in [5, 4, 3, 2, 1]" :key="star" class="grid grid-cols-[2.5rem_1fr_3rem] items-center gap-2 text-xs font-bold text-muted-foreground">
+              <span>{{ star }} ★</span>
+              <span class="h-2 overflow-hidden rounded-full bg-white">
+                <span class="block h-full rounded-full bg-secondary" :style="{ width: `${ratingPercent(star)}%` }"></span>
+              </span>
+              <span class="text-right">{{ ratingPercent(star) }}%</span>
             </div>
           </div>
 
@@ -153,14 +169,14 @@ onMounted(() => {
             <textarea
               v-model="comment"
               rows="4"
-              class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-[#142b63]"
+              class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none transition focus:border-[#294a78]"
               placeholder="ຂຽນຄວາມຄິດເຫັນຂອງເຈົ້າ..."
             ></textarea>
 
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="w-full rounded-xl bg-[#142b63] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0e214d] disabled:bg-slate-400"
+              class="w-full rounded-xl bg-[#294a78] px-5 py-3 text-sm font-black text-white transition hover:bg-[#213d66] disabled:bg-slate-400"
             >
               {{ isSubmitting ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກຣີວິວ' }}
             </button>
@@ -170,12 +186,12 @@ onMounted(() => {
             ລົງທະບຽນຄອສນີ້ກ່ອນ ແລ້ວຈຶ່ງສາມາດຣີວິວໄດ້
           </p>
 
-          <p v-if="message" class="mt-4 text-sm font-bold text-[#142b63]">{{ message }}</p>
+          <p v-if="message" class="mt-4 text-sm font-bold text-[#294a78]">{{ message }}</p>
         </aside>
 
         <div class="space-y-4">
           <p v-if="isLoading" class="rounded-2xl bg-slate-50 px-5 py-8 text-center text-slate-500">
-            Loading reviews...
+            ກຳລັງໂຫຼດຣີວິວ...
           </p>
 
           <p
@@ -189,11 +205,11 @@ onMounted(() => {
             v-for="review in reviews"
             v-else
             :key="review.review_id"
-            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            class="rounded-xl border border-slate-200 bg-card p-5 shadow-[var(--card-shadow)]"
           >
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div class="flex items-center gap-3">
-                <div class="grid h-11 w-11 place-items-center rounded-full bg-[#142b63] font-black text-white">
+                <div class="grid h-11 w-11 place-items-center rounded-full bg-[#294a78] font-black text-white">
                   {{ getReviewerName(review).slice(0, 1).toUpperCase() }}
                 </div>
                 <div>
@@ -227,6 +243,5 @@ onMounted(() => {
           </article>
         </div>
       </div>
-    </div>
   </section>
 </template>

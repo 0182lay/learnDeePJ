@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
+import { resolveAssetUrl } from '../api/config'
 import { getMe, updateMyProfile, uploadMyAvatar } from '../api/userApi'
 import { useAuthStore } from '../stores/authStore'
 import type { AppUser } from '../types/user'
@@ -33,9 +34,7 @@ const avatarPreview = computed(() => {
 })
 
 const resolveFileUrl = (url: string) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const syncAuthUserProfile = (updatedUser: AppUser) => {
@@ -159,7 +158,7 @@ onMounted(() => {
       <div class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <RouterLink to="/dashboard" class="text-sm font-bold text-slate-500 hover:text-[#142b63]">
-            ← ກັບຄືນ Dashboard
+            ← ກັບຄືນແດຊບອດ
           </RouterLink>
           <h1 class="mt-4 text-3xl font-black text-[#0f1f4d]">ໂປຣໄຟລ໌ຂອງຂ້ອຍ</h1>
           <p class="mt-2 text-sm font-medium text-slate-500">
@@ -176,7 +175,7 @@ onMounted(() => {
       </div>
 
       <p v-if="isLoading" class="mt-6 rounded-2xl bg-white px-5 py-4 text-sm font-bold text-slate-500">
-        Loading profile...
+        ກຳລັງໂຫຼດໂປຣໄຟລ໌...
       </p>
       <p v-if="errorMessage" class="mt-6 rounded-2xl bg-red-50 px-5 py-4 text-sm font-bold text-red-600">
         {{ errorMessage }}

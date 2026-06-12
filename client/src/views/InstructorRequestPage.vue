@@ -122,7 +122,7 @@ onMounted(() => {
         </div>
 
         <p v-if="isLoading" class="mt-6 rounded-2xl bg-slate-50 px-5 py-4 text-sm font-bold text-slate-500">
-          Loading request status...
+          ກຳລັງໂຫຼດສະຖານະຄຳຂໍ...
         </p>
         <p v-if="errorMessage" class="mt-6 rounded-2xl bg-red-50 px-5 py-4 text-sm font-bold text-red-600">
           {{ errorMessage }}
@@ -134,7 +134,7 @@ onMounted(() => {
         <div class="mt-6 rounded-2xl border border-[#f5a400]/30 bg-[#f5a400]/5 p-5">
           <h2 class="font-black text-[#0f1f4d]">ຫຼັງຈາກກົດຂໍ</h2>
           <ul class="mt-3 space-y-2 text-sm leading-7 text-slate-600">
-            <li>• ຄຳຂໍຈະໄປຢູ່ໜ້າ Admin Dashboard</li>
+            <li>• ຄຳຂໍຈະໄປຢູ່ໜ້າແດຊບອດແອດມິນ</li>
             <li>• ກ່ອນ admin ອະນຸມັດ ເຈົ້າຍັງໃຊ້ງານແບບ student</li>
             <li>• ຫຼັງອະນຸມັດ ໃຫ້ login ໃໝ່ເພື່ອໂຫຼດ role ໃໝ່</li>
           </ul>

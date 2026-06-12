@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LessonQuestionEditor from './LessonQuestionEditor.vue'
+import { resolveAssetUrl } from '../../api/config'
 import type { DraftLesson } from '../../types/createCourse'
 
 const props = defineProps<{
@@ -34,8 +35,7 @@ const getCurrentFile = (lesson: DraftLesson, type: 'video' | 'image' | 'document
 }
 
 const getPublicFileUrl = (fileUrl: string) => {
-  if (fileUrl.startsWith('http')) return fileUrl
-  return `http://localhost:3003${fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`}`
+  return resolveAssetUrl(fileUrl)
 }
 
 const formatFileSize = (size: number | null) => {

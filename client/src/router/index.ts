@@ -45,7 +45,6 @@ const router = createRouter({
     {
       path: '/courses/:courseId',
       component: CourseDetailPage,
-      meta: { requiresAuth: true },
     },
     {
       path: '/courses/:courseId/learn/:lessonId',

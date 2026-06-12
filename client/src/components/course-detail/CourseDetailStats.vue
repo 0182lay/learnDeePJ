@@ -29,7 +29,7 @@ defineProps<{
 
     <div class="rounded-2xl border border-white/15 bg-white/[0.08] p-5 text-white shadow-sm backdrop-blur">
       <p class="text-2xl text-[#f5a400]">✓</p>
-      <p class="mt-4 text-2xl font-black">{{ isPublished ? 'Open' : 'Draft' }}</p>
+      <p class="mt-4 text-2xl font-black">{{ isPublished ? 'ເປີດສອນ' : 'ຮ່າງ' }}</p>
       <p class="mt-1 text-sm font-medium text-white/65">ສະຖານະ</p>
     </div>
   </div>

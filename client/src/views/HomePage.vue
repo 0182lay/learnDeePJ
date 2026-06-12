@@ -8,7 +8,7 @@ import HomeFooter from '../components/home/HomeFooter.vue'
 </script>
 
 <template>
-  <main class="min-h-screen bg-white">
+  <main class="min-h-screen bg-[#f7f7f6]">
     <HeroSection />
     <StatsSection />
     <CategorySection />

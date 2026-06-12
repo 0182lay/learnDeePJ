@@ -433,7 +433,7 @@ onMounted(() => {
             to="/dashboard"
             class="text-sm font-bold text-slate-500 transition hover:text-[#142b63]"
           >
-            ← ກັບຄືນ Dashboard
+            ← ກັບຄືນແດຊບອດ
           </RouterLink>
 
           <h1 class="mt-3 text-3xl font-black text-slate-950">ສ້າງຄອສໃໝ່</h1>
@@ -498,7 +498,7 @@ onMounted(() => {
       </section>
 
       <p v-if="isLoading" class="mt-6 rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-        Loading categories...
+        ກຳລັງໂຫຼດໝວດໝູ່...
       </p>
 
       <p v-if="errorMessage" class="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">

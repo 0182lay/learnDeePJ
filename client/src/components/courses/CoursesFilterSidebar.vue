@@ -49,16 +49,19 @@ const isCollapsed = ref(false)
 
 <template>
   <aside
-    class="overflow-hidden border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,31,77,0.04),0_14px_30px_rgba(15,31,77,0.06)] transition-all duration-300"
-    :class="isCollapsed ? 'w-[54px] rounded-[16px]' : 'w-full rounded-[14px] lg:w-[270px]'"
+    class="overflow-hidden border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,31,77,0.04),0_18px_42px_rgba(15,31,77,0.065)] transition-all duration-300"
+    :class="isCollapsed ? 'w-[58px] rounded-[20px]' : 'w-full rounded-[22px] lg:w-[320px]'"
   >
     <button
       type="button"
-      class="flex w-full items-center border-b border-slate-200/80 transition hover:bg-slate-50"
-      :class="isCollapsed ? 'h-14 justify-center px-0' : 'justify-between px-5 py-4'"
+      class="interactive-motion flex w-full items-center border-b border-slate-200/80 transition hover:bg-[#f5a400]/7"
+      :class="isCollapsed ? 'h-14 justify-center px-0' : 'justify-between px-6 py-5'"
       @click="isCollapsed = !isCollapsed"
     >
-      <h2 v-if="!isCollapsed" class="text-base font-bold text-slate-950">ຕົວກອງ</h2>
+      <h2 v-if="!isCollapsed" class="flex items-center gap-3 text-lg font-black text-slate-950">
+        <span class="text-[#f5a400]">▽</span>
+        ຕົວກອງ
+      </h2>
 
       <span
         class="text-2xl font-semibold leading-none text-slate-950 transition"
@@ -105,7 +108,7 @@ const isCollapsed = ref(false)
       </button>
     </div>
 
-    <div v-else class="sidebar-scroll max-h-[470px] space-y-5 overflow-y-auto p-4 pr-2">
+    <div v-else class="sidebar-scroll max-h-[540px] space-y-6 overflow-y-auto p-5 pr-3">
       <section>
         <p class="mb-3 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
           <svg
@@ -126,11 +129,11 @@ const isCollapsed = ref(false)
             v-for="category in categoryOptions"
             :key="category.value"
             type="button"
-            class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-[200] transition"
+            class="interactive-motion flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-bold transition"
             :class="
               selectedCategory === category.value
-                ? 'bg-[#142b63] text-white shadow-sm'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-[#142b63]'
+                ? 'bg-[#294a78] text-white shadow-[0_10px_22px_rgba(41,74,120,0.16)]'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-[#294a78]'
             "
             @click="emit('update:selectedCategory', category.value)"
           >
@@ -164,11 +167,11 @@ const isCollapsed = ref(false)
             v-for="level in levels"
             :key="level.value"
             type="button"
-            class="rounded-full border px-3 py-2 text-xs font-semibold transition"
+            class="interactive-motion rounded-full border px-4 py-2 text-xs font-black transition"
             :class="
               selectedLevel === level.value
-                ? 'border-[#142b63] bg-[#142b63] text-white'
-                : 'border-slate-200 bg-white text-slate-500 hover:border-[#142b63]'
+                ? 'border-[#294a78] bg-[#294a78] text-white'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-[#294a78]'
             "
             @click="emit('update:selectedLevel', level.value)"
           >
@@ -198,11 +201,11 @@ const isCollapsed = ref(false)
             v-for="price in prices"
             :key="price.value"
             type="button"
-            class="rounded-full border px-3.5 py-2 text-xs font-semibold transition"
+            class="interactive-motion rounded-full border px-4 py-2 text-xs font-black transition"
             :class="
               selectedPrice === price.value
-                ? 'border-[#142b63] bg-[#142b63] text-white'
-                : 'border-slate-200 bg-white text-slate-500 hover:border-[#142b63]'
+                ? 'border-[#294a78] bg-[#294a78] text-white'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-[#294a78]'
             "
             @click="emit('update:selectedPrice', price.value)"
           >

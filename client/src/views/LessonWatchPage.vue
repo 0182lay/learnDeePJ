@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import axios from 'axios'
+import { resolveAssetUrl } from '../api/config'
 import { getCourseById } from '../api/courseApi'
 import { getMyEnrollments } from '../api/enrollmentApi'
 import { getLessonById, getLessonsByCourseId } from '../api/lessonApi'
@@ -42,6 +43,18 @@ const currentTime = ref(0)
 const videoDuration = ref(0)
 const volume = ref(1)
 const isMuted = ref(false)
+const playbackRate = ref(1)
+const videoQualityMode = ref<'auto' | '480p' | '720p' | '1080p'>('auto')
+const openVideoMenu = ref<'quality' | 'speed' | null>(null)
+
+const playbackRateOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+
+const videoQualityOptions = [
+  { value: 'auto', label: 'Auto' },
+  { value: '480p', label: '480p' },
+  { value: '720p', label: '720p' },
+  { value: '1080p', label: '1080p' },
+] as const
 
 const courseId = computed(() => route.params.courseId as string)
 const lessonId = computed(() => route.params.lessonId as string)
@@ -104,6 +117,20 @@ const videoSizeClass = computed(() => {
   return 'h-full max-h-[calc(100vh-170px)]'
 })
 
+const videoQualityClass = computed(() => {
+  if (videoQualityMode.value === '1080p') return 'contrast-[1.08] saturate-[1.08] brightness-[1.02]'
+  if (videoQualityMode.value === '720p') return 'contrast-[1.03] saturate-[1.03]'
+  if (videoQualityMode.value === '480p') return 'contrast-[0.96] saturate-[0.95] brightness-[0.98]'
+
+  return ''
+})
+
+const selectedVideoQualityLabel = computed(() => {
+  return (
+    videoQualityOptions.find((option) => option.value === videoQualityMode.value)?.label || 'Auto'
+  )
+})
+
 const videoProgressPercent = computed(() => {
   if (!videoDuration.value) return 0
   return (currentTime.value / videoDuration.value) * 100
@@ -122,15 +149,7 @@ const documentFile = computed(() => {
 })
 
 const getPublicFileUrl = (url: string | undefined) => {
-  if (!url) {
-    return ''
-  }
-
-  if (url.startsWith('http')) {
-    return url
-  }
-
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const videoUrl = computed(() => getPublicFileUrl(videoFile.value?.file_url))
@@ -327,10 +346,13 @@ const syncVideoState = (video: HTMLVideoElement) => {
   isPlaying.value = !video.paused
   volume.value = video.volume
   isMuted.value = video.muted
+  playbackRate.value = video.playbackRate
 }
 
 const handleVideoLoadedMetadata = (event: Event) => {
-  syncVideoState(event.target as HTMLVideoElement)
+  const video = event.target as HTMLVideoElement
+  video.playbackRate = playbackRate.value
+  syncVideoState(video)
 }
 
 const handleVideoTimeUpdate = (event: Event) => {
@@ -390,7 +412,29 @@ const toggleMute = () => {
   syncVideoState(video)
 }
 
+const changePlaybackRate = (nextRate: number) => {
+  const video = videoRef.value
+
+  playbackRate.value = nextRate
+  openVideoMenu.value = null
+
+  if (!video) return
+
+  video.playbackRate = nextRate
+  syncVideoState(video)
+}
+
+const changeVideoQuality = (quality: typeof videoQualityMode.value) => {
+  videoQualityMode.value = quality
+  openVideoMenu.value = null
+}
+
+const toggleVideoMenu = (menu: 'quality' | 'speed') => {
+  openVideoMenu.value = openVideoMenu.value === menu ? null : menu
+}
+
 const toggleTheaterMode = () => {
+  openVideoMenu.value = null
   videoViewMode.value = videoViewMode.value === 'wide' ? 'normal' : 'wide'
 }
 
@@ -517,7 +561,7 @@ watch(
       </header>
 
       <section v-if="isLoading" class="grid flex-1 place-items-center text-slate-500">
-        Loading...
+        ກຳລັງໂຫຼດ...
       </section>
 
       <section v-else-if="errorMessage" class="grid flex-1 place-items-center px-6">
@@ -543,7 +587,7 @@ watch(
                   <span
                     class="rounded-full bg-[#f5a400]/15 px-3 py-1 text-xs font-black text-[#b87900]"
                   >
-                    Quiz
+                    ແບບທົດສອບ
                   </span>
                   <h1 class="mt-4 text-3xl font-black text-slate-950">
                     {{ quiz?.title || lesson.title }}
@@ -702,8 +746,8 @@ watch(
                 ref="videoRef"
                 :src="videoUrl"
                 autoplay
-                class="w-full bg-black object-contain"
-                :class="videoSizeClass"
+                class="w-full bg-black object-contain transition-[filter] duration-200"
+                :class="[videoSizeClass, videoQualityClass]"
                 @click="togglePlay"
                 @ended="markCurrentLessonComplete"
                 @loadedmetadata="handleVideoLoadedMetadata"
@@ -735,8 +779,8 @@ watch(
                   @input="seekVideo"
                 />
 
-                <div class="mt-3 flex items-center justify-between gap-4 text-white">
-                  <div class="flex items-center gap-3">
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-4 text-white">
+                  <div class="flex flex-wrap items-center gap-3">
                     <button
                       type="button"
                       class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-sm font-black transition hover:bg-white/20"
@@ -768,7 +812,71 @@ watch(
                     </span>
                   </div>
 
-                  <div class="flex items-center gap-2">
+                  <div class="flex flex-wrap items-center justify-end gap-2">
+                    <div class="relative">
+                      <button
+                        type="button"
+                        class="inline-flex h-10 min-w-[132px] items-center justify-between gap-3 rounded-lg bg-white/10 px-3 text-xs font-black text-white/90 transition hover:bg-white/20"
+                        title="Video quality"
+                        @click="toggleVideoMenu('quality')"
+                      >
+                        <span>Quality</span>
+                        <span class="inline-flex items-center gap-2">
+                          {{ selectedVideoQualityLabel }}
+                          <span class="text-[10px]">⌄</span>
+                        </span>
+                      </button>
+
+                      <div
+                        v-if="openVideoMenu === 'quality'"
+                        class="absolute bottom-12 right-0 z-20 w-36 overflow-hidden rounded-xl border border-white/15 bg-slate-950/95 py-1 text-sm font-black text-white shadow-2xl backdrop-blur"
+                      >
+                        <button
+                          v-for="option in videoQualityOptions"
+                          :key="option.value"
+                          type="button"
+                          class="flex w-full items-center justify-between px-4 py-2.5 text-left transition hover:bg-white/12"
+                          :class="videoQualityMode === option.value ? 'bg-[#f5a400] text-slate-950' : ''"
+                          @click="changeVideoQuality(option.value)"
+                        >
+                          <span>{{ option.label }}</span>
+                          <span v-if="videoQualityMode === option.value">✓</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="relative">
+                      <button
+                        type="button"
+                        class="inline-flex h-10 min-w-[112px] items-center justify-between gap-3 rounded-lg bg-white/10 px-3 text-xs font-black text-white/90 transition hover:bg-white/20"
+                        title="Playback speed"
+                        @click="toggleVideoMenu('speed')"
+                      >
+                        <span>Speed</span>
+                        <span class="inline-flex items-center gap-2 font-number">
+                          {{ playbackRate }}x
+                          <span class="text-[10px]">⌄</span>
+                        </span>
+                      </button>
+
+                      <div
+                        v-if="openVideoMenu === 'speed'"
+                        class="absolute bottom-12 right-0 z-20 w-28 overflow-hidden rounded-xl border border-white/15 bg-slate-950/95 py-1 text-sm font-black text-white shadow-2xl backdrop-blur"
+                      >
+                        <button
+                          v-for="rate in playbackRateOptions"
+                          :key="rate"
+                          type="button"
+                          class="flex w-full items-center justify-between px-4 py-2.5 text-left font-number transition hover:bg-white/12"
+                          :class="playbackRate === rate ? 'bg-[#f5a400] text-slate-950' : ''"
+                          @click="changePlaybackRate(rate)"
+                        >
+                          <span>{{ rate }}x</span>
+                          <span v-if="playbackRate === rate">✓</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       type="button"
                       class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-base font-black transition hover:bg-white/20"
@@ -889,7 +997,7 @@ watch(
                   class="rounded-xl bg-[#142b63] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0e214d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                   @click="markCurrentLessonComplete"
                 >
-                  {{ isLessonCompleted(lesson.lesson_id) ? 'ຮຽນຈົບແລ້ວ' : 'Mark complete' }}
+                  {{ isLessonCompleted(lesson.lesson_id) ? 'ຮຽນຈົບແລ້ວ' : 'ໝາຍວ່າຮຽນຈົບ' }}
                 </button>
 
                 <a

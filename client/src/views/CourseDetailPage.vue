@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { enrollCourse, getMyEnrollments } from '../api/enrollmentApi'
 import { getLessonsByCourseId } from '../api/lessonApi'
 import { createPayment, getMyPayments, uploadPaymentSlip } from '../api/paymentApi'
 import { getProgress, updateProgress } from '../api/progressApi'
 import { getCourseById } from '../api/courseApi'
-import CourseFaqSection from '../components/course-detail/CourseFaqSection.vue'
-import CourseDetailStats from '../components/course-detail/CourseDetailStats.vue'
 import CourseLessonsSection from '../components/course-detail/CourseLessonsSection.vue'
 import CourseOutcomesSection from '../components/course-detail/CourseOutcomesSection.vue'
 import CoursePurchaseCard from '../components/course-detail/CoursePurchaseCard.vue'
 import CourseReviewsSection from '../components/course-detail/CourseReviewsSection.vue'
 import PaymentDialog from '../components/payment/PaymentDialog.vue'
+import { resolveAssetUrl } from '../api/config'
 import type { CourseDetail } from '../types/course'
 import type { MyEnrollment } from '../types/enrollment'
 import type { Lesson } from '../types/lesson'
@@ -21,6 +20,7 @@ import type { MyPayment } from '../types/payment'
 import type { LearningProgress } from '../types/progress'
 
 const route = useRoute()
+const router = useRouter()
 const lessons = ref<Lesson[]>([])
 const course = ref<CourseDetail | null>(null)
 const isLoading = ref(false)
@@ -34,13 +34,13 @@ const currentEnrollment = ref<MyEnrollment | null>(null)
 const currentEnrollmentId = ref('')
 const progressList = ref<LearningProgress[]>([])
 const showPaymentDialog = ref(false)
-const activeDetailTab = ref<'lessons' | 'outcomes' | 'reviews' | 'faq'>('lessons')
+const activeDetailTab = ref<'overview' | 'curriculum' | 'instructor' | 'reviews'>('overview')
 
 const detailTabs = [
-  { key: 'lessons', label: 'ບົດຮຽນ' },
-  { key: 'outcomes', label: 'ສິ່ງທີ່ຈະໄດ້ຮັບ' },
-  { key: 'reviews', label: 'ຣີວິວ' },
-  { key: 'faq', label: 'FAQ' },
+  { key: 'overview', label: 'เบเบฒเบเบฅเบงเบก' },
+  { key: 'curriculum', label: 'เบซเบผเบฑเบเบชเบนเบ”' },
+  { key: 'instructor', label: 'เบเบนเปเบชเบญเบ' },
+  { key: 'reviews', label: 'เบเบณเป€เบซเบฑเบ' },
 ] as const
 
 const formatPrice = (price: string) => {
@@ -53,23 +53,34 @@ const formatPrice = (price: string) => {
   return new Intl.NumberFormat('en-US').format(numberPrice)
 }
 
-const resolveThumbnail = (url: string | null) => {
-  if (!url) {
-    return ''
-  }
+const resolveThumbnail = (url: string | null) => resolveAssetUrl(url)
 
-  if (url.startsWith('http')) {
-    return url
-  }
-
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
-}
+const hasAuthToken = () => !!localStorage.getItem('token')
 
 const instructorName = computed(() => {
   const profile = course.value?.instructor.profile
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
 
-  return fullName || course.value?.instructor.email || 'ຜູ້ສອນ'
+  return fullName || course.value?.instructor.email || 'เบเบนเปเบชเบญเบ'
+})
+
+const instructorAvatar = computed(() => {
+  return course.value?.instructor.profile?.avatar_url
+    ? resolveThumbnail(course.value.instructor.profile.avatar_url)
+    : ''
+})
+
+const instructorInitial = computed(() => instructorName.value.slice(0, 1).toUpperCase())
+
+const lastUpdatedText = computed(() => {
+  const date = course.value?.updated_at || course.value?.created_at
+  if (!date) return 'เบญเบฑเบเป€เบ”เบ”เบฅเปเบฒเบชเบธเบ”'
+
+  return new Intl.DateTimeFormat('lo-LA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(date))
 })
 
 const courseRatingText = computed(() => {
@@ -78,7 +89,7 @@ const courseRatingText = computed(() => {
 
 const courseReviewText = computed(() => {
   const count = course.value?.review_count || 0
-  return count > 0 ? `${count} ຣີວິວ` : 'ຍັງບໍ່ມີຣີວິວ'
+  return count > 0 ? `${count} เบฃเบตเบงเบดเบง` : 'เบเบฑเบเบเปเปเบกเบตเบฃเบตเบงเบดเบง'
 })
 
 const refreshEnrollmentState = async (courseId: string) => {
@@ -104,10 +115,20 @@ const fetchCourse = async () => {
     const courseId = route.params.courseId as string
     course.value = await getCourseById(courseId)
     lessons.value = await getLessonsByCourseId(courseId)
-    await refreshEnrollmentState(courseId)
+
+    if (hasAuthToken()) {
+      await refreshEnrollmentState(courseId)
+    } else {
+      enrollments.value = []
+      payments.value = []
+      currentEnrollment.value = null
+      isAlreadyEnrolled.value = false
+      currentEnrollmentId.value = ''
+      progressList.value = []
+    }
   } catch (error) {
     console.log(error)
-    errorMessage.value = 'ໂຫຼດລາຍລະອຽດຄອສບໍ່ສຳເລັດ'
+    errorMessage.value = 'เปเบซเบผเบ”เบฅเบฒเบเบฅเบฐเบญเบฝเบ”เบเบญเบชเบเปเปเบชเบณเป€เบฅเบฑเบ”'
   } finally {
     isLoading.value = false
   }
@@ -167,8 +188,16 @@ const handleCompleteLesson = async (lessonId: string) => {
 }
 
 const handleEnroll = async () => {
+  if (!hasAuthToken()) {
+    router.push({
+      path: '/login',
+      query: { redirect: route.fullPath },
+    })
+    return
+  }
+
   if (!course.value?.is_published) {
-    enrollMessage.value = 'ຄອສນີ້ຍັງບໍ່ເປີດສອນ'
+    enrollMessage.value = 'เบเบญเบชเบเบตเปเบเบฑเบเบเปเปเป€เบเบตเบ”เบชเบญเบ'
     return
   }
 
@@ -182,22 +211,22 @@ const handleEnroll = async () => {
 
     if (requiresPayment.value && !currentEnrollment.value?.is_paid) {
       if (hasSubmittedSlip.value) {
-        enrollMessage.value = 'ສົ່ງສະລີບແລ້ວ. ລໍຖ້າການອະນຸມັດຈາກແອດມິນ.'
+        enrollMessage.value = 'เบชเบปเปเบเบชเบฐเบฅเบตเบเปเบฅเปเบง. เบฅเปเบ–เปเบฒเบเบฒเบเบญเบฐเบเบธเบกเบฑเบ”เบเบฒเบเปเบญเบ”เบกเบดเบ.'
         return
       }
 
       showPaymentDialog.value = true
-      enrollMessage.value = 'ລົງທະບຽນແລ້ວ. ກະລຸນາອັບໂຫຼດສະລີບເພື່ອໃຫ້ແອດມິນກວດ.'
+      enrollMessage.value = 'เบฅเบปเบเบ—เบฐเบเบฝเบเปเบฅเปเบง. เบเบฐเบฅเบธเบเบฒเบญเบฑเบเปเบซเบผเบ”เบชเบฐเบฅเบตเบเป€เบเบทเปเบญเปเบซเปเปเบญเบ”เบกเบดเบเบเบงเบ”.'
     } else {
-      enrollMessage.value = 'ລົງທະບຽນຄອສສຳເລັດ'
+      enrollMessage.value = 'เบฅเบปเบเบ—เบฐเบเบฝเบเบเบญเบชเบชเบณเป€เบฅเบฑเบ”'
     }
   } catch (error: unknown) {
     if (axios.isAxiosError<{ message: string }>(error)) {
-      enrollMessage.value = error.response?.data?.message || 'ລົງທະບຽນບໍ່ສຳເລັດ'
+      enrollMessage.value = error.response?.data?.message || 'เบฅเบปเบเบ—เบฐเบเบฝเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
       return
     }
 
-    enrollMessage.value = 'ລົງທະບຽນບໍ່ສຳເລັດ'
+    enrollMessage.value = 'เบฅเบปเบเบ—เบฐเบเบฝเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
   } finally {
     isEnrolling.value = false
   }
@@ -225,16 +254,16 @@ const handlePaymentSuccess = async (slip: File) => {
     await uploadPaymentSlip(payment.payment_id, slip)
     await refreshEnrollmentState(courseId)
     showPaymentDialog.value = false
-    enrollMessage.value = 'ສົ່ງສະລີບແລ້ວ. ລໍຖ້າການອະນຸມັດຈາກແອດມິນ.'
+    enrollMessage.value = 'เบชเบปเปเบเบชเบฐเบฅเบตเบเปเบฅเปเบง. เบฅเปเบ–เปเบฒเบเบฒเบเบญเบฐเบเบธเบกเบฑเบ”เบเบฒเบเปเบญเบ”เบกเบดเบ.'
   } catch (error: unknown) {
     showPaymentDialog.value = false
 
     if (axios.isAxiosError<{ message: string }>(error)) {
-      enrollMessage.value = error.response?.data?.message || 'ອັບໂຫຼດສະລີບບໍ່ສຳເລັດ'
+      enrollMessage.value = error.response?.data?.message || 'เบญเบฑเบเปเบซเบผเบ”เบชเบฐเบฅเบตเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
       return
     }
 
-    enrollMessage.value = 'ອັບໂຫຼດສະລີບບໍ່ສຳເລັດ'
+    enrollMessage.value = 'เบญเบฑเบเปเบซเบผเบ”เบชเบฐเบฅเบตเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
   } finally {
     isEnrolling.value = false
   }
@@ -246,84 +275,110 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-[#f8fafc]">
-    <section v-if="isLoading" class="px-8 py-16 text-center text-slate-500">Loading...</section>
+  <main class="min-h-screen bg-background">
+    <section
+      v-if="isLoading"
+      class="mx-auto grid max-w-[1120px] gap-6 px-6 py-10 lg:grid-cols-[1fr_320px]"
+      aria-busy="true"
+    >
+      <div class="loading-panel min-h-[460px] p-6">
+        <div class="loading-line h-5 w-36"></div>
+        <div class="mt-8 space-y-4">
+          <div class="loading-line h-10 w-3/4"></div>
+          <div class="loading-line h-4 w-full"></div>
+          <div class="loading-line h-4 w-2/3"></div>
+        </div>
+        <div class="mt-16 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div v-for="index in 4" :key="index" class="loading-panel h-[150px]"></div>
+        </div>
+      </div>
+      <div class="loading-panel h-[420px]"></div>
+    </section>
 
     <section v-else-if="errorMessage" class="px-8 py-16">
-      <p class="mx-auto max-w-3xl rounded-2xl bg-red-50 px-5 py-4 text-center text-red-600">
+      <p class="mx-auto max-w-3xl rounded-xl bg-red-50 px-5 py-4 text-center text-red-600">
         {{ errorMessage }}
       </p>
     </section>
 
     <template v-else-if="course">
-      <section class="hero-gradient">
-        <div
-          class="mx-auto grid max-w-[1700px] gap-10 px-8 py-10 lg:grid-cols-[1fr_400px] lg:px-20 2xl:px-28"
-        >
-          <div class="flex flex-col justify-between">
-            <div>
-              <RouterLink
-                to="/courses"
-                class="inline-flex items-center gap-2 text-sm font-bold text-white/80 transition hover:text-white"
-              >
-                ← ກັບໄປໜ້າລາຍການຄອສ
-              </RouterLink>
+      <section class="course-detail-hero">
+        <div class="mx-auto grid min-h-[580px] max-w-[1120px] gap-9 px-6 py-9 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div class="min-w-0 text-white">
+            <RouterLink
+              to="/courses"
+              class="inline-flex items-center gap-2 text-sm font-bold text-white/75 transition hover:text-white"
+            >
+              โ เบเบฑเบเบเบทเบเบฅเบฒเบเบเบฒเบเบเบญเบช
+            </RouterLink>
 
-              <div class="mt-7 flex flex-wrap gap-2">
-                <span class="rounded-full bg-[#f5a400] px-3 py-1 text-xs font-bold text-slate-950">
-                  {{ course.category.name }}
-                </span>
-                <span class="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-white">
-                  {{ course.level || 'ເລີ່ມຕົ້ນ' }}
-                </span>
-                <span
-                  v-if="course.is_published"
-                  class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-200"
-                >
-                  Open course
-                </span>
-              </div>
+            <div class="mt-7 flex flex-wrap gap-2">
+              <span class="rounded-full bg-secondary px-3 py-1 text-xs font-black text-secondary-foreground">
+                {{ course.category.name }}
+              </span>
+              <span class="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-black text-white">
+                {{ course.level || 'เป€เบฅเบตเปเบกเบ•เบปเปเบ' }}
+              </span>
+              <span class="rounded-full bg-accent/20 px-3 py-1 text-xs font-black text-emerald-100">
+                Bestseller
+              </span>
+            </div>
 
-              <h1 class="mt-5 max-w-4xl text-4xl font-black leading-tight text-white md:text-5xl xl:text-6xl">
-                {{ course.title }}
-              </h1>
+            <h1 class="mt-3 max-w-[700px] font-heading text-4xl font-black leading-tight md:text-[2.7rem]">
+              {{ course.title }}
+            </h1>
 
-              <p class="mt-5 max-w-3xl text-lg leading-9 text-white/85">
-                {{ course.description || 'ຄອສນີ້ຍັງບໍ່ມີຄຳອະທິບາຍ' }}
-              </p>
+            <p class="mt-4 max-w-[720px] text-sm font-semibold leading-7 text-white/88 md:text-base">
+              {{ course.description || 'เบเบญเบชเบเบตเปเบเบฑเบเบเปเปเบกเบตเบเบณเบญเบฐเบ—เบดเบเบฒเบ' }}
+            </p>
 
-              <div class="mt-6 flex flex-wrap items-center gap-5 text-sm font-bold text-white/85">
-                <span class="text-[#f5a400]">★★★★★ <span class="text-white">{{ courseRatingText }}</span></span>
-                <span>{{ courseReviewText }}</span>
-                <span>ບົດຮຽນ {{ lessons.length }}</span>
-                <span>{{ course.category.name }}</span>
-              </div>
+            <div class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-white/88">
+              <span class="text-secondary">โ…โ…โ…โ…โ… <span class="text-white">{{ courseRatingText }}</span></span>
+              <span>({{ courseReviewText }})</span>
+              <span>๐‘ฅ 1,250 เบเบฑเบเบฎเบฝเบ</span>
+              <span>๐ เบเบฒเบชเบฒเบฅเบฒเบง</span>
+              <span>โ—ท เบญเบฑเบเป€เบ”เบ” {{ lastUpdatedText }}</span>
+            </div>
 
-              <div class="mt-8 flex items-center gap-4">
-                <div
-                  class="grid h-12 w-12 place-items-center rounded-full bg-[#f5a400] font-black text-slate-950"
-                >
-                  ອ
-                </div>
-
-                <div>
-                  <p class="text-sm text-white/60">ສ້າງໂດຍ</p>
-                  <p class="font-black text-white">ອ. {{ instructorName }}</p>
-                </div>
+            <div class="mt-7 flex items-center gap-3">
+              <span v-if="instructorAvatar" class="h-12 w-12 overflow-hidden rounded-full bg-white/15">
+                <img :src="instructorAvatar" :alt="instructorName" class="h-full w-full object-cover" />
+              </span>
+              <span v-else class="grid h-12 w-12 place-items-center rounded-full bg-secondary text-lg font-black text-secondary-foreground">
+                {{ instructorInitial }}
+              </span>
+              <div>
+                <p class="text-xs font-bold text-white/58">เบชเปเบฒเบเปเบ”เบ</p>
+                <p class="font-black text-white">{{ instructorName }}</p>
               </div>
             </div>
 
-            <CourseDetailStats
-              class="mt-14"
-              :lesson-count="lessons.length"
-              :level="course.level"
-              :category-name="course.category.name"
-              :is-published="course.is_published"
-            />
+            <div class="mt-28 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
+                <p class="text-xl text-secondary">โ–ฑ</p>
+                <p class="mt-4 font-heading text-xl font-black">{{ lessons.length }}</p>
+                <p class="text-xs font-bold text-white/62">เบเบปเบ”เบฎเบฝเบ</p>
+              </div>
+              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
+                <p class="text-xl text-secondary">โ—ท</p>
+                <p class="mt-4 font-heading text-xl font-black">12 เบเบก</p>
+                <p class="text-xs font-bold text-white/62">เป€เบงเบฅเบฒเบฎเบฝเบ</p>
+              </div>
+              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
+                <p class="text-xl text-secondary">๐‘ฅ</p>
+                <p class="mt-4 font-heading text-xl font-black">1,250</p>
+                <p class="text-xs font-bold text-white/62">เบเบฑเบเบฎเบฝเบ</p>
+              </div>
+              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
+                <p class="text-xl text-secondary">๐</p>
+                <p class="mt-4 font-heading text-xl font-black">98%</p>
+                <p class="text-xs font-bold text-white/62">เบเบงเบฒเบกเบเปเปเบ</p>
+              </div>
+            </div>
           </div>
 
           <CoursePurchaseCard
-            class="lg:sticky lg:top-20"
+            class="lg:sticky lg:top-24 lg:mt-8 lg:self-start"
             :thumbnail-url="resolveThumbnail(course.thumbnail_url)"
             :title="course.title"
             :price="formatPrice(course.price)"
@@ -344,46 +399,84 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="bg-white px-8 pt-10 lg:px-20 2xl:px-28">
-        <div class="mx-auto max-w-[1700px]">
-          <div class="inline-flex rounded-xl bg-slate-200/70 p-1">
+      <section class="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8">
+        <section class="card-soft overflow-hidden">
+          <div class="flex flex-wrap gap-2 border-b border-slate-200 bg-muted/60 p-2">
             <button
               v-for="tab in detailTabs"
               :key="tab.key"
               type="button"
-              class="rounded-lg px-4 py-2 text-sm transition"
+              class="rounded-lg px-4 py-2 text-sm transition duration-300 ease-out"
               :class="
                 activeDetailTab === tab.key
-                  ? 'bg-white font-black text-[#142b63] shadow-sm'
-                  : 'font-bold text-slate-500 hover:text-[#142b63]'
+                  ? 'bg-card font-black text-primary shadow-[var(--card-shadow)]'
+                  : 'font-bold text-muted-foreground hover:text-primary'
               "
               @click="activeDetailTab = tab.key"
             >
               {{ tab.label }}
             </button>
           </div>
-        </div>
+
+          <div class="animate-card-in p-5 md:p-6">
+            <div v-if="activeDetailTab === 'overview'" class="space-y-6">
+              <div>
+                <h2 class="font-heading text-2xl font-black text-card-foreground">เบเบฒเบเบฅเบงเบก</h2>
+                <p class="mt-3 text-base leading-8 text-muted-foreground">
+                  {{ course.description || 'เบเบญเบชเบเบตเปเบเบฑเบเบเปเปเบกเบตเบเบณเบญเบฐเบ—เบดเบเบฒเบ' }}
+                </p>
+              </div>
+
+              <CourseOutcomesSection />
+            </div>
+
+            <CourseLessonsSection
+              v-else-if="activeDetailTab === 'curriculum'"
+              :course-id="course.course_id"
+              :lessons="lessons"
+              :current-enrollment-id="currentEnrollmentId"
+              :is-lesson-completed="isLessonCompleted"
+              @complete-lesson="handleCompleteLesson"
+            />
+
+            <div v-else-if="activeDetailTab === 'instructor'" class="grid gap-5 sm:grid-cols-[auto_1fr]">
+              <div v-if="instructorAvatar" class="h-24 w-24 overflow-hidden rounded-full bg-muted">
+                <img :src="instructorAvatar" :alt="instructorName" class="h-full w-full object-cover" />
+              </div>
+              <div v-else class="grid h-24 w-24 place-items-center rounded-full bg-primary text-3xl font-black text-white">
+                {{ instructorInitial }}
+              </div>
+              <div>
+                <h2 class="font-heading text-2xl font-black text-card-foreground">{{ instructorName }}</h2>
+                <p class="mt-2 text-base leading-8 text-muted-foreground">
+                  เบเบนเปเบชเบญเบเบเบญเบเบเบญเบชเบเบตเป เบเปเบญเบกเบเบฒเบเบนเปเบฎเบฝเบเปเบเบ•เบฒเบกเบเบปเบ”เบฎเบฝเบเปเบเบเป€เบเบฑเบเบเบฑเปเบเบ•เบญเบ.
+                </p>
+                <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div class="rounded-xl bg-muted p-4">
+                    <p class="font-heading text-xl font-black text-primary">1+</p>
+                    <p class="text-xs font-bold text-muted-foreground">เบเบญเบช</p>
+                  </div>
+                  <div class="rounded-xl bg-muted p-4">
+                    <p class="font-heading text-xl font-black text-primary">350+</p>
+                    <p class="text-xs font-bold text-muted-foreground">เบเบฑเบเบฎเบฝเบ</p>
+                  </div>
+                  <div class="rounded-xl bg-muted p-4">
+                    <p class="font-heading text-xl font-black text-primary">{{ courseRatingText }}</p>
+                    <p class="text-xs font-bold text-muted-foreground">rating</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <CourseReviewsSection
+              v-else-if="activeDetailTab === 'reviews'"
+              :course-id="course.course_id"
+              :can-review="isAlreadyEnrolled"
+              @updated="fetchCourse"
+            />
+          </div>
+        </section>
       </section>
-
-      <CourseLessonsSection
-        v-if="activeDetailTab === 'lessons'"
-        :course-id="course.course_id"
-        :lessons="lessons"
-        :current-enrollment-id="currentEnrollmentId"
-        :is-lesson-completed="isLessonCompleted"
-        @complete-lesson="handleCompleteLesson"
-      />
-
-      <CourseOutcomesSection v-else-if="activeDetailTab === 'outcomes'" />
-
-      <CourseReviewsSection
-        v-else-if="activeDetailTab === 'reviews'"
-        :course-id="course.course_id"
-        :can-review="isAlreadyEnrolled"
-        @updated="fetchCourse"
-      />
-
-      <CourseFaqSection v-else-if="activeDetailTab === 'faq'" />
 
       <PaymentDialog
         :open="showPaymentDialog"

@@ -7,6 +7,7 @@ import {
   updateCategory,
   type CategoryPayload,
 } from '../../api/categoryApi'
+import { resolveAssetUrl } from '../../api/config'
 import { deleteCourse, getMyCourses } from '../../api/courseApi'
 import { deletePayment, getMyPayments, updatePaymentStatus } from '../../api/paymentApi'
 import { getUsers, updateUser } from '../../api/userApi'
@@ -58,9 +59,7 @@ const avatarText = computed(() => displayName.value.slice(0, 2).toUpperCase())
 const avatarUrl = computed(() => authStore.user?.profile?.avatar_url || '')
 
 const resolveFileUrl = (url: string) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const activeUsersCount = computed(() => {
@@ -102,10 +101,36 @@ const publishedCoursesCount = computed(() => {
 const reportRows = computed(() => {
   if (selectedReportType.value === 'monthlyRevenue') {
     return [
-      { metric: 'ລາຍໄດ້ລວມ', current: formatShortMoney(totalRevenue.value), growth: '+28.4%', status: 'ດີ', tone: 'positive' },
-      { metric: 'ລາຍການຊຳລະສຳເລັດ', current: completedPayments.value.length, growth: '+12.5%', status: 'ດີ', tone: 'positive' },
-      { metric: 'ລາຍການລໍຖ້າ', current: pendingPayments.value.length, growth: '+3.5%', status: 'ກວດ', tone: 'neutral' },
-      { metric: 'ມູນຄ່າສະເລ່ຍ', current: formatMoney(completedPayments.value.length ? totalRevenue.value / completedPayments.value.length : 0), growth: '+8.2%', status: 'ດີ', tone: 'positive' },
+      {
+        metric: 'ລາຍໄດ້ລວມ',
+        current: formatShortMoney(totalRevenue.value),
+        growth: '+28.4%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ລາຍການຊຳລະສຳເລັດ',
+        current: completedPayments.value.length,
+        growth: '+12.5%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ລາຍການລໍຖ້າ',
+        current: pendingPayments.value.length,
+        growth: '+3.5%',
+        status: 'ກວດ',
+        tone: 'neutral',
+      },
+      {
+        metric: 'ມູນຄ່າສະເລ່ຍ',
+        current: formatMoney(
+          completedPayments.value.length ? totalRevenue.value / completedPayments.value.length : 0,
+        ),
+        growth: '+8.2%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
     ]
   }
 
@@ -121,36 +146,122 @@ const reportRows = computed(() => {
 
   if (selectedReportType.value === 'instructorRevenue') {
     return [
-      { metric: 'ຜູ້ສອນທັງໝົດ', current: instructors.value.length, growth: '+8.2%', status: 'ດີ', tone: 'positive' },
-      { metric: 'ຜູ້ສອນລໍຖ້າ', current: pendingInstructors.value.length, growth: '-15%', status: 'ຕິດຕາມ', tone: 'negative' },
-      { metric: 'ລາຍໄດ້ຜູ້ສອນ', current: formatShortMoney(Math.round(totalRevenue.value * 0.7)), growth: '+18.5%', status: 'ດີ', tone: 'positive' },
-      { metric: 'ຄອສຕໍ່ຜູ້ສອນ', current: instructors.value.length ? Math.round(courses.value.length / instructors.value.length) : 0, growth: '+4.1%', status: 'ດີ', tone: 'positive' },
+      {
+        metric: 'ຜູ້ສອນທັງໝົດ',
+        current: instructors.value.length,
+        growth: '+8.2%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ຜູ້ສອນລໍຖ້າ',
+        current: pendingInstructors.value.length,
+        growth: '-15%',
+        status: 'ຕິດຕາມ',
+        tone: 'negative',
+      },
+      {
+        metric: 'ລາຍໄດ້ຜູ້ສອນ',
+        current: formatShortMoney(Math.round(totalRevenue.value * 0.7)),
+        growth: '+18.5%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ຄອສຕໍ່ຜູ້ສອນ',
+        current: instructors.value.length
+          ? Math.round(courses.value.length / instructors.value.length)
+          : 0,
+        growth: '+4.1%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
     ]
   }
 
   if (selectedReportType.value === 'learnerJourney') {
     return [
-      { metric: 'ຜູ້ໃຊ້ນັກຮຽນ', current: studentsCount.value, growth: '+12.5%', status: 'ດີ', tone: 'positive' },
-      { metric: 'ນັກຮຽນໃໝ່', current: Math.max(0, studentsCount.value - 3), growth: '+15.2%', status: 'ດີ', tone: 'positive' },
-      { metric: 'ອັດຕາການຈົບສະເລ່ຍ', current: '73%', growth: '+3.5%', status: 'ດີ', tone: 'positive' },
-      { metric: 'ບົດຮຽນທີ່ເປີດເບິ່ງ', current: courses.value.length * 6, growth: '+9.8%', status: 'ດີ', tone: 'positive' },
+      {
+        metric: 'ຜູ້ໃຊ້ນັກຮຽນ',
+        current: studentsCount.value,
+        growth: '+12.5%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ນັກຮຽນໃໝ່',
+        current: Math.max(0, studentsCount.value - 3),
+        growth: '+15.2%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ອັດຕາການຈົບສະເລ່ຍ',
+        current: '73%',
+        growth: '+3.5%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ບົດຮຽນທີ່ເປີດເບິ່ງ',
+        current: courses.value.length * 6,
+        growth: '+9.8%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
     ]
   }
 
   return [
-    { metric: 'ຜູ້ໃຊ້ທັງໝົດ', current: activeUsersCount.value, growth: '+12.5%', status: 'ດີ', tone: 'positive' },
-    { metric: 'ຄອສທັງໝົດ', current: courses.value.length, growth: '+8.2%', status: 'ດີ', tone: 'positive' },
-    { metric: 'ລາຍໄດ້ລວມ 6 ເດືອນ', current: formatShortMoney(totalRevenue.value), growth: '+28.4%', status: 'ດີຫຼາຍ', tone: 'positive' },
-    { metric: 'ນັກຮຽນໃໝ່', current: studentsCount.value, growth: '+15.2%', status: 'ດີ', tone: 'positive' },
-    { metric: 'ອັດຕາຮຽນຈົບສະເລ່ຍ', current: '73%', growth: '+3.5%', status: 'ດີ', tone: 'positive' },
-    { metric: 'ຜູ້ສອນລໍຖ້າ', current: pendingInstructors.value.length, growth: '-15%', status: 'ຕິດຕາມ', tone: 'negative' },
+    {
+      metric: 'ຜູ້ໃຊ້ທັງໝົດ',
+      current: activeUsersCount.value,
+      growth: '+12.5%',
+      status: 'ດີ',
+      tone: 'positive',
+    },
+    {
+      metric: 'ຄອສທັງໝົດ',
+      current: courses.value.length,
+      growth: '+8.2%',
+      status: 'ດີ',
+      tone: 'positive',
+    },
+    {
+      metric: 'ລາຍໄດ້ລວມ 6 ເດືອນ',
+      current: formatShortMoney(totalRevenue.value),
+      growth: '+28.4%',
+      status: 'ດີຫຼາຍ',
+      tone: 'positive',
+    },
+    {
+      metric: 'ນັກຮຽນໃໝ່',
+      current: studentsCount.value,
+      growth: '+15.2%',
+      status: 'ດີ',
+      tone: 'positive',
+    },
+    {
+      metric: 'ອັດຕາຮຽນຈົບສະເລ່ຍ',
+      current: '73%',
+      growth: '+3.5%',
+      status: 'ດີ',
+      tone: 'positive',
+    },
+    {
+      metric: 'ຜູ້ສອນລໍຖ້າ',
+      current: pendingInstructors.value.length,
+      growth: '-15%',
+      status: 'ຕິດຕາມ',
+      tone: 'negative',
+    },
   ]
 })
 
 const recentActivities = computed(() => {
   const paymentActivities = payments.value.slice(0, 4).map((payment) => ({
     id: `payment-${payment.payment_id}`,
-    title: payment.status === 'completed' ? 'ຊຳລະເງິນສຳເລັດ' : 'payment ໃໝ່ລໍຖ້າ',
+    title: payment.status === 'completed' ? 'ຊຳລະເງິນສຳເລັດ' : 'ການຊຳລະເງິນໃໝ່ລໍຖ້າ',
     detail: `${formatMoney(payment.amount)} - ${payment.course.title}`,
     time: formatDate(payment.created_at),
   }))
@@ -230,7 +341,7 @@ const getPaymentStudentName = (payment: MyPayment) => {
     .filter(Boolean)
     .join(' ')
 
-  return fullName || payment.student?.email || 'Student'
+  return fullName || payment.student?.email || 'ນັກຮຽນ'
 }
 
 const getInstructorName = (course: Course) => {
@@ -238,7 +349,7 @@ const getInstructorName = (course: Course) => {
     .filter(Boolean)
     .join(' ')
 
-  return fullName || course.instructor?.email || 'Instructor'
+  return fullName || course.instructor?.email || 'ຜູ້ສອນ'
 }
 
 const csvCell = (value: string | number | boolean | null | undefined) => {
@@ -270,11 +381,11 @@ const exportReportCsv = () => {
         getInstructorName(course),
         course.category?.name || '-',
         formatMoney(course.price),
-        course.is_published ? 'Published' : 'Draft',
+        course.is_published ? 'ເຜີຍແຜ່' : 'ຮ່າງ',
       ]),
     ]),
     csvSection('PAYMENT REPORT', [
-      ['Student', 'Course', 'Amount', 'Status', 'Date'],
+      ['ນັກຮຽນ', 'ຄອສ', 'ຈຳນວນເງິນ', 'ສະຖານະ', 'ວັນທີ'],
       ...payments.value.map((payment) => [
         getPaymentStudentName(payment),
         payment.course.title,
@@ -323,7 +434,7 @@ const fetchAdminData = async () => {
     payments.value = paymentList
   } catch (error) {
     console.log(error)
-    errorMessage.value = 'ໂຫຼດຂໍ້ມູນ Admin ບໍ່ສຳເລັດ'
+    errorMessage.value = 'ໂຫຼດຂໍ້ມູນແອດມິນບໍ່ສຳເລັດ'
   } finally {
     isLoading.value = false
   }
@@ -342,10 +453,10 @@ const handlePaymentStatus = async (paymentId: string, status: PaymentStatus) => 
       payments.value[index] = updated
     }
 
-    successMessage.value = 'ອັບເດດ payment ແລ້ວ'
+    successMessage.value = 'ອັບເດດການຊຳລະເງິນແລ້ວ'
   } catch (error) {
     console.log(error)
-    errorMessage.value = 'ອັບເດດ payment ບໍ່ສຳເລັດ'
+    errorMessage.value = 'ອັບເດດການຊຳລະເງິນບໍ່ສຳເລັດ'
   } finally {
     updatingId.value = ''
   }
@@ -363,10 +474,10 @@ const handleDeletePayment = async (payment: MyPayment) => {
 
     await deletePayment(payment.payment_id)
     payments.value = payments.value.filter((item) => item.payment_id !== payment.payment_id)
-    successMessage.value = 'ລົບ payment ແລ້ວ'
+    successMessage.value = 'ລົບການຊຳລະເງິນແລ້ວ'
   } catch (error) {
     console.log(error)
-    errorMessage.value = 'ລົບ payment ບໍ່ສຳເລັດ'
+    errorMessage.value = 'ລົບການຊຳລະເງິນບໍ່ສຳເລັດ'
   } finally {
     updatingId.value = ''
   }
@@ -585,7 +696,7 @@ onMounted(() => {
           to="/payments"
           class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-[#142b63] shadow-sm transition hover:border-[#142b63]"
         >
-          ຈັດການ payment
+          ຈັດການການຊຳລະເງິນ
         </RouterLink>
 
         <RouterLink
@@ -615,7 +726,7 @@ onMounted(() => {
       v-if="isLoading"
       class="mt-8 rounded-2xl bg-white px-5 py-8 text-center text-sm font-bold text-slate-500"
     >
-      Loading admin dashboard...
+          ກຳລັງໂຫຼດແດຊບອດແອດມິນ...
     </p>
 
     <template v-else>
@@ -623,13 +734,13 @@ onMounted(() => {
         <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <div class="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl">👥</div>
           <p class="mt-4 text-3xl font-black text-[#0f1f4d]">{{ activeUsersCount }}</p>
-          <p class="mt-2 text-sm font-bold text-slate-500">ຜູ້ໃຊ້ທີ່ active</p>
+          <p class="mt-2 text-sm font-bold text-slate-500">ຜູ້ໃຊ້ທີ່ໃຊ້ງານຢູ່</p>
         </article>
 
         <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#f5a400]/10 text-xl">📖</div>
-          <p class="mt-4 text-3xl font-black text-[#0f1f4d]">{{ courses.length }}</p>
-          <p class="mt-2 text-sm font-bold text-slate-500">ຄອສທັ້ງໝົດ</p>
+          <p class="mt-4 text-3xl font-black text-[#0f1f4d]">{{ publishedCoursesCount }}</p>
+          <p class="mt-2 text-sm font-bold text-slate-500">ຄອສທີ່ເຜີຍແຜ່</p>
         </article>
 
         <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -643,7 +754,7 @@ onMounted(() => {
         <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <div class="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-xl">🛡️</div>
           <p class="mt-4 text-3xl font-black text-[#0f1f4d]">{{ pendingPayments.length }}</p>
-          <p class="mt-2 text-sm font-bold text-slate-500">payment ລໍຖ້າ</p>
+          <p class="mt-2 text-sm font-bold text-slate-500">ການຊຳລະທີ່ລໍຖ້າ</p>
         </article>
       </div>
 
@@ -748,7 +859,8 @@ onMounted(() => {
           <div>
             <h2 class="text-xl font-black text-[#0f1f4d]">Users</h2>
             <p class="mt-1 text-sm font-bold text-slate-500">
-              {{ users.length }} total · {{ studentsCount }} students · {{ instructors.length }} instructors
+              {{ users.length }} total · {{ studentsCount }} students ·
+              {{ instructors.length }} instructors
             </p>
           </div>
         </div>
@@ -771,14 +883,18 @@ onMounted(() => {
                   <p class="mt-1 text-xs font-medium text-slate-500">{{ user.email }}</p>
                 </td>
                 <td class="py-4 pr-4">
-                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-[#142b63]">
+                  <span
+                    class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-[#142b63]"
+                  >
                     {{ user.role }}
                   </span>
                 </td>
                 <td class="py-4 pr-4">
                   <span
                     class="rounded-full px-3 py-1 text-xs font-black"
-                    :class="user.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'"
+                    :class="
+                      user.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                    "
                   >
                     {{ user.is_active ? 'Active' : 'Banned / inactive' }}
                   </span>
@@ -837,7 +953,7 @@ onMounted(() => {
                     : 'bg-slate-200 text-slate-500'
                 "
               >
-                {{ course.is_published ? 'Published' : 'Draft' }}
+                {{ course.is_published ? 'ເຜີຍແຜ່' : 'ຮ່າງ' }}
               </span>
             </div>
 
@@ -1017,7 +1133,7 @@ onMounted(() => {
             <div>
               <h3 class="font-black text-[#0f1f4d]">{{ getUserName(user) }}</h3>
               <p class="mt-1 text-sm text-slate-500">{{ user.email }}</p>
-              <p class="mt-1 text-xs font-bold text-slate-400">ສະຖານະ: inactive instructor</p>
+              <p class="mt-1 text-xs font-bold text-slate-400">ສະຖານະ: ລໍຖ້າອະນຸມັດຜູ້ສອນ</p>
             </div>
 
             <div class="flex gap-3">
@@ -1074,7 +1190,7 @@ onMounted(() => {
                 rel="noreferrer"
                 class="mt-2 inline-flex text-xs font-black text-[#142b63] underline"
               >
-                View slip
+                ເບິ່ງສະລິບ
               </a>
             </div>
 
@@ -1119,11 +1235,23 @@ onMounted(() => {
       </section>
 
       <section v-else id="admin-report-print" class="mt-6 space-y-7">
-        <div class="report-actions flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div
+          class="report-actions flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"
+        >
           <label class="flex flex-wrap items-center gap-3 text-sm font-medium text-slate-500">
             <svg class="h-5 w-5 text-slate-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-              <path d="M14 3v5h5M8 13h8M8 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              <path
+                d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M14 3v5h5M8 13h8M8 17h6"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
             </svg>
             ປະເພດລາຍງານ:
             <select
@@ -1143,10 +1271,21 @@ onMounted(() => {
               @click="exportReportCsv"
             >
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 3v11m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <path
+                  d="M12 3v11m0 0 4-4m-4 4-4-4"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
               </svg>
-              Export CSV
+              ສົ່ງອອກ CSV
             </button>
 
             <button
@@ -1155,8 +1294,19 @@ onMounted(() => {
               @click="printReport"
             >
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M7 14h10v7H7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                <path
+                  d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M7 14h10v7H7z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                />
               </svg>
               ພິມ
             </button>
@@ -1164,7 +1314,13 @@ onMounted(() => {
         </div>
 
         <article class="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div class="grid grid-cols-[1.5fr_0.7fr_0.6fr_0.6fr] border-b border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-500">
+          <div class="border-b border-slate-200 px-5 py-4">
+            <h3 class="text-base font-black text-[#0f1f4d]">{{ selectedReportLabel }}</h3>
+          </div>
+
+          <div
+            class="grid grid-cols-[1.5fr_0.7fr_0.6fr_0.6fr] border-b border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-500"
+          >
             <p>ຕົວຊີ້ວັດ</p>
             <p>ຄ່າປັດຈຸບັນ</p>
             <p>ເຕີບໂຕ</p>
@@ -1181,7 +1337,13 @@ onMounted(() => {
               <p class="font-number text-base font-bold text-slate-950">{{ row.current }}</p>
               <p
                 class="text-sm font-medium"
-                :class="row.tone === 'negative' ? 'text-red-500' : row.tone === 'neutral' ? 'text-slate-500' : 'text-emerald-600'"
+                :class="
+                  row.tone === 'negative'
+                    ? 'text-red-500'
+                    : row.tone === 'neutral'
+                      ? 'text-slate-500'
+                      : 'text-emerald-600'
+                "
               >
                 {{ row.tone === 'negative' ? '↘' : '↗' }} {{ row.growth }}
               </p>
@@ -1202,7 +1364,6 @@ onMounted(() => {
             </div>
           </div>
         </article>
-
       </section>
     </template>
   </section>

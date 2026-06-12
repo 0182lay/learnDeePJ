@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     question: 'ຈ່າຍເງິນແລ້ວເຂົ້າຮຽນໄດ້ທັນທີບໍ?',
-    answer: 'ລາຍການ payment ຈະເປັນ pending ກ່ອນ ແລ້ວ admin ຈະອະນຸມັດໃຫ້ເປັນ paid.',
+    answer: 'ລາຍການຊຳລະເງິນຈະຢູ່ສະຖານະລໍຖ້າກ່ອນ ແລ້ວແອດມິນຈະອະນຸມັດໃຫ້ເຂົ້າຮຽນ.',
   },
 ]
 </script>
@@ -28,7 +28,7 @@ const faqs = [
       <article class="card-soft rounded-3xl p-7">
         <p class="text-sm font-black uppercase tracking-wide text-[#f5a400]">Instructor</p>
         <div class="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div class="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-[#142b63] text-2xl font-black text-white">
+          <div class="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-[#294a78] text-2xl font-black text-white">
             {{ instructorName.slice(0, 1).toUpperCase() }}
           </div>
 
@@ -42,15 +42,15 @@ const faqs = [
 
         <div class="mt-7 grid gap-3 sm:grid-cols-3">
           <div class="rounded-2xl bg-slate-50 p-4">
-            <p class="font-number text-2xl font-black text-[#142b63]">4.8</p>
+            <p class="font-number text-2xl font-black text-[#294a78]">4.8</p>
             <p class="mt-1 text-xs font-bold text-slate-500">Rating</p>
           </div>
           <div class="rounded-2xl bg-slate-50 p-4">
-            <p class="font-number text-2xl font-black text-[#142b63]">1,250+</p>
+            <p class="font-number text-2xl font-black text-[#294a78]">1,250+</p>
             <p class="mt-1 text-xs font-bold text-slate-500">Students</p>
           </div>
           <div class="rounded-2xl bg-slate-50 p-4">
-            <p class="font-number text-2xl font-black text-[#142b63]">12</p>
+            <p class="font-number text-2xl font-black text-[#294a78]">12</p>
             <p class="mt-1 text-xs font-bold text-slate-500">Courses</p>
           </div>
         </div>
@@ -92,7 +92,7 @@ const faqs = [
 
           <RouterLink
             to="/courses"
-            class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-[#142b63] transition hover:border-[#142b63]"
+            class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-[#294a78] transition hover:border-[#294a78]"
           >
             ເບິ່ງຄອສອື່ນ
           </RouterLink>

@@ -6,12 +6,13 @@ import {
   issueCertificate,
   type Certificate,
 } from '../../api/certificateApi'
+import { resolveAssetUrl } from '../../api/config'
 import { getMyEnrollments } from '../../api/enrollmentApi'
 import { getMyPayments } from '../../api/paymentApi'
 import { getProgress } from '../../api/progressApi'
 import { useAuthStore } from '../../stores/authStore'
 import fallbackCourseImage from '../../assets/images/learndeeimg.png'
-import logoUrl from '../../assets/images/logo.svg'
+import logoUrl from '../../assets/images/logolearndee.png'
 import type { MyEnrollment } from '../../types/enrollment'
 import type { MyPayment, PaymentStatus } from '../../types/payment'
 import type { LearningProgress } from '../../types/progress'
@@ -41,9 +42,7 @@ const avatarText = computed(() => displayName.value.slice(0, 2).toUpperCase())
 const avatarUrl = computed(() => authStore.user?.profile?.avatar_url || '')
 
 const resolveFileUrl = (url: string) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const completedCoursesCount = computed(() => {
@@ -234,7 +233,7 @@ const loadDashboard = async () => {
     progressByEnrollment.value = Object.fromEntries(progressEntries)
   } catch (error) {
     console.log(error)
-    errorMessage.value = 'ໂຫຼດຂໍ້ມູນ Dashboard ບໍ່ສຳເລັດ'
+    errorMessage.value = 'ໂຫຼດຂໍ້ມູນແດຊບອດບໍ່ສຳເລັດ'
   } finally {
     isLoading.value = false
   }
@@ -269,7 +268,7 @@ onMounted(() => {
       </p>
 
       <p v-if="isLoading" class="mt-8 rounded-2xl bg-white px-6 py-10 text-center text-sm font-bold text-slate-500">
-        Loading dashboard...
+        ກຳລັງໂຫຼດແດຊບອດ...
       </p>
 
       <template v-else>
@@ -421,7 +420,7 @@ onMounted(() => {
               </div>
 
               <div>
-                <p class="text-xs font-bold uppercase text-slate-400">Amount</p>
+                <p class="text-xs font-bold uppercase text-slate-400">ຈຳນວນເງິນ</p>
                 <p class="mt-1 font-number text-xl font-black text-[#f5a400]">{{ formatMoney(payment.amount) }}</p>
               </div>
 

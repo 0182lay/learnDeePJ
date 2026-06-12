@@ -21,7 +21,7 @@ router.get(
     authorizeRoles("instructor", "admin"),
     getMyCourses,
 );
-router.get("/courses/:courseId", auth, getCoursesById);
+router.get("/courses/:courseId", getCoursesById);
 router.post(
     "/courses",
     auth,

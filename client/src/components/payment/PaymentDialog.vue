@@ -22,6 +22,22 @@ const numericPrice = computed(() => {
   return Number.isNaN(amount) ? 0 : amount
 })
 
+const paymentPayload = computed(() => {
+  return JSON.stringify({
+    merchant: 'LearnDeePJ',
+    course: props.courseTitle,
+    amount: numericPrice.value,
+    currency: 'LAK',
+  })
+})
+
+const qrCodeUrl = computed(() => {
+  const size = 220
+  const data = encodeURIComponent(paymentPayload.value)
+
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=12&data=${data}`
+})
+
 const formatMoney = (amount: number) => {
   return `₭${amount.toLocaleString('en-US')}`
 }
@@ -100,12 +116,12 @@ watch(
       class="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-slate-950/55 px-4 py-6 backdrop-blur-sm"
       @click.self="handleClose"
     >
-      <section class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-[0_30px_90px_rgba(15,31,77,0.35)]">
+      <section class="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-[0_30px_90px_rgba(15,31,77,0.35)]">
         <div class="hero-gradient px-6 py-4 text-white">
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-xs font-black uppercase tracking-wide text-[#f5a400]">
-                Slip payment
+                ຊຳລະເງິນດ້ວຍສະລິບ
               </p>
               <h2 class="mt-1 text-2xl font-black">ອັບໂຫຼດສະລີບ</h2>
               <p class="mt-1 line-clamp-1 text-sm text-white/70">{{ courseTitle }}</p>
@@ -137,6 +153,23 @@ watch(
             </div>
           </div>
 
+          <div class="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[220px_1fr] sm:items-center">
+            <div class="rounded-2xl bg-white p-3 ring-1 ring-slate-100">
+              <img
+                :src="qrCodeUrl"
+                alt="QR ສຳລັບຊຳລະເງິນ"
+                class="mx-auto h-[196px] w-[196px]"
+              />
+            </div>
+            <div>
+              <p class="text-xs font-black uppercase tracking-wide text-[#f5a400]">ສະແກນ QR</p>
+              <h3 class="mt-1 text-lg font-black text-[#0f1f4d]">ຊຳລະເງິນຜ່ານ QR</h3>
+              <p class="mt-2 text-sm font-bold leading-6 text-slate-500">
+                ສະແກນ QR ເພື່ອຊຳລະຄ່າຄອສ ແລ້ວອັບໂຫຼດສະລິບດ້ານລຸ່ມໃຫ້ແອດມິນກວດ.
+              </p>
+            </div>
+          </div>
+
           <label
             class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-5 py-5 text-center transition hover:border-[#f5a400] hover:bg-[#f5a400]/5"
           >
@@ -153,7 +186,7 @@ watch(
           <div v-if="previewUrl" class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
             <img
               :src="previewUrl"
-              alt="Payment slip preview"
+              alt="ຕົວຢ່າງສະລິບຊຳລະເງິນ"
               class="mx-auto h-56 max-w-full object-contain"
             />
           </div>

@@ -1,25 +1,25 @@
 <template>
-  <section class="bg-white">
+  <section class="border-b border-slate-200 bg-[#f7f7f6]">
     <div
-      class="mx-auto grid max-w-[1700px] grid-cols-2 gap-8 px-8 py-4 text-center md:grid-cols-4 lg:px-20 2xl:px-28"
+      class="mx-auto grid max-w-[1680px] grid-cols-2 gap-px overflow-hidden border-x border-slate-200 bg-slate-200 text-center sm:px-0 md:grid-cols-4"
     >
-      <div>
-        <p class="text-3xl font-black text-[#142b63]">120+</p>
+      <div class="bg-white px-6 py-8">
+        <p class="font-number text-4xl font-black text-[#294a78]">12,500+</p>
         <p class="mt-2 text-sm font-medium text-slate-500">ຄອສຮຽນ</p>
       </div>
 
-      <div>
-        <p class="text-3xl font-black text-[#142b63]">850+</p>
-        <p class="mt-2 text-sm font-medium text-slate-500">ນັກຮຽນ</p>
+      <div class="bg-white px-6 py-8">
+        <p class="font-number text-4xl font-black text-[#294a78]">350+</p>
+        <p class="mt-2 text-sm font-medium text-slate-500">ຜູ້ຮຽນ</p>
       </div>
 
-      <div>
-        <p class="text-3xl font-black text-[#142b63]">300+</p>
+      <div class="bg-white px-6 py-8">
+        <p class="font-number text-4xl font-black text-[#294a78]">120+</p>
         <p class="mt-2 text-sm font-medium text-slate-500">ບົດຮຽນ</p>
       </div>
 
-      <div>
-        <p class="text-3xl font-black text-[#142b63]">98%</p>
+      <div class="bg-white px-6 py-8">
+        <p class="font-number text-4xl font-black text-[#294a78]">98%</p>
         <p class="mt-2 text-sm font-medium text-slate-500">ຄວາມພໍໃຈ</p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { resolveAssetUrl } from '../api/config'
 import { useAuthStore } from '../stores/authStore'
 
 const router = useRouter()
@@ -31,9 +32,7 @@ const initials = computed(() => {
 const avatarUrl = computed(() => authStore.user?.profile?.avatar_url || '')
 
 const resolveFileUrl = (url: string) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const handleLogout = () => {
@@ -47,7 +46,7 @@ const handleLogout = () => {
   <div class="relative">
     <button
       type="button"
-      class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition hover:border-[#142b63]/30 hover:shadow-md"
+      class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition hover:border-[#294a78]/30 hover:shadow-md"
       @click="isOpen = !isOpen"
     >
       <img
@@ -56,7 +55,7 @@ const handleLogout = () => {
         :alt="displayName"
         class="h-8 w-8 rounded-full object-cover"
       />
-      <span v-else class="grid h-8 w-8 place-items-center rounded-full bg-[#142b63] text-[10px] font-black text-white">
+      <span v-else class="grid h-8 w-8 place-items-center rounded-full bg-[#294a78] text-[10px] font-black text-white">
         {{ initials }}
       </span>
 
@@ -78,7 +77,7 @@ const handleLogout = () => {
         class="flex items-center gap-3 border-b border-slate-100 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
         @click="isOpen = false"
       >
-        <span class="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-xs text-[#142b63]">♟</span>
+        <span class="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-xs text-[#294a78]">♟</span>
         <span>ໂປຣໄຟລ໌</span>
       </RouterLink>
 
@@ -87,7 +86,7 @@ const handleLogout = () => {
         class="flex items-center gap-3 border-b border-slate-100 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
         @click="isOpen = false"
       >
-        <span class="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-xs text-[#142b63]">♙</span>
+        <span class="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-xs text-[#294a78]">♙</span>
         <span>ຂໍເປັນຜູ້ສອນ</span>
       </RouterLink>
 

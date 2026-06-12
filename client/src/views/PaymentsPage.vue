@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { resolveAssetUrl } from '../api/config'
 import { getMyPayments, updatePaymentStatus } from '../api/paymentApi'
 import { useAuthStore } from '../stores/authStore'
 import type { MyPayment, PaymentStatus } from '../types/payment'
@@ -46,20 +47,18 @@ const getStudentName = (payment: MyPayment) => {
   const profile = payment.student?.profile
   const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
 
-  return fullName || payment.student?.email || 'Student'
+  return fullName || payment.student?.email || 'ນັກຮຽນ'
 }
 
 const getInstructorName = (payment: MyPayment) => {
   const profile = payment.course.instructor?.profile
   const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
 
-  return fullName || payment.course.instructor?.email || 'Instructor'
+  return fullName || payment.course.instructor?.email || 'ຜູ້ສອນ'
 }
 
 const resolveFileUrl = (url: string) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const statusLabel: Record<PaymentStatus, string> = {
@@ -121,12 +120,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-[#f7f8fb]">
-    <section class="mx-auto max-w-[1700px] px-8 py-8 lg:px-20 2xl:px-28">
+  <main class="soft-page min-h-screen">
+    <section class="mx-auto max-w-[1680px] px-6 py-8 sm:px-8 lg:px-16 2xl:px-20">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p class="text-sm font-bold text-slate-500">
-            {{ isAdmin ? 'Admin' : 'Dashboard' }}
+            {{ isAdmin ? 'ແອດມິນ' : 'ແດຊບອດ' }}
           </p>
           <h1 class="mt-2 text-3xl font-black text-[#0f1f4d]">
             {{ isAdmin ? 'ການອະນຸມັດການຊຳລະເງິນ' : 'ລາຍການຊຳລະເງິນຂອງຂ້ອຍ' }}
@@ -134,8 +133,8 @@ onMounted(() => {
           <p class="mt-2 text-sm text-slate-500">
             {{
               isAdmin
-                ? 'ກວດສອບ payment ແລະອະນຸມັດໃຫ້ນັກຮຽນເຂົ້າຮຽນ'
-                : 'ຕິດຕາມສະຖານະ payment ຂອງຄອສທີ່ລົງທະບຽນ'
+                ? 'ກວດສອບການຊຳລະເງິນ ແລະ ອະນຸມັດໃຫ້ນັກຮຽນເຂົ້າຮຽນ'
+                : 'ຕິດຕາມສະຖານະການຊຳລະເງິນຂອງຄອສທີ່ລົງທະບຽນ'
             }}
           </p>
         </div>
@@ -144,22 +143,22 @@ onMounted(() => {
           to="/dashboard"
           class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-[#142b63] shadow-sm transition hover:border-[#142b63]"
         >
-          ກັບຄືນ Dashboard
+          ກັບຄືນແດຊບອດ
         </RouterLink>
       </div>
 
       <div class="mt-8 grid gap-4 md:grid-cols-3">
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p class="text-sm font-bold text-slate-500">ລໍຖ້າອະນຸມັດ</p>
           <p class="mt-3 text-3xl font-black text-[#142b63]">{{ pendingCount }}</p>
         </article>
 
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p class="text-sm font-bold text-slate-500">ສຳເລັດ</p>
           <p class="mt-3 text-3xl font-black text-emerald-600">{{ completedCount }}</p>
         </article>
 
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p class="text-sm font-bold text-slate-500">ລາຍຮັບທີ່ອະນຸມັດ</p>
           <p class="mt-3 text-3xl font-black text-[#f5a400]">{{ formatMoney(totalAmount) }}</p>
         </article>
@@ -176,10 +175,10 @@ onMounted(() => {
         {{ successMessage }}
       </p>
 
-      <section class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section class="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_12px_32px_rgba(15,31,77,0.06)]">
         <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
-            <h2 class="text-lg font-black text-[#0f1f4d]">Payment list</h2>
+            <h2 class="text-lg font-black text-[#0f1f4d]">ລາຍການຊຳລະເງິນ</h2>
             <p class="mt-1 text-sm text-slate-500">{{ payments.length }} ລາຍການ</p>
           </div>
 
@@ -189,16 +188,16 @@ onMounted(() => {
             class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-[#142b63] hover:text-[#142b63] disabled:cursor-not-allowed disabled:text-slate-400"
             @click="fetchPayments"
           >
-            Refresh
+            ໂຫຼດໃໝ່
           </button>
         </div>
 
         <p v-if="isLoading" class="px-6 py-10 text-center text-sm font-bold text-slate-500">
-          Loading payments...
+          ກຳລັງໂຫຼດລາຍການຊຳລະເງິນ...
         </p>
 
         <p v-else-if="payments.length === 0" class="px-6 py-10 text-center text-sm font-bold text-slate-500">
-          ຍັງບໍ່ມີ payment
+          ຍັງບໍ່ມີລາຍການຊຳລະເງິນ
         </p>
 
         <div v-else class="divide-y divide-slate-100">
@@ -229,29 +228,29 @@ onMounted(() => {
 
             <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
               <p>
-                <span class="block text-xs font-bold uppercase text-slate-400">Amount</span>
+                <span class="block text-xs font-bold uppercase text-slate-400">ຈຳນວນເງິນ</span>
                 <span class="font-black text-[#f5a400]">{{ formatMoney(payment.amount) }}</span>
               </p>
 
               <p>
-                <span class="block text-xs font-bold uppercase text-slate-400">Method</span>
+                <span class="block text-xs font-bold uppercase text-slate-400">ວິທີຊຳລະ</span>
                 <span class="font-bold text-slate-600">{{ payment.payment_method || '-' }}</span>
               </p>
 
               <p>
-                <span class="block text-xs font-bold uppercase text-slate-400">Created</span>
+                <span class="block text-xs font-bold uppercase text-slate-400">ວັນທີ</span>
                 <span class="font-bold text-slate-600">{{ formatDate(payment.created_at) }}</span>
               </p>
 
               <p v-if="payment.slip_url">
-                <span class="block text-xs font-bold uppercase text-slate-400">Slip</span>
+                <span class="block text-xs font-bold uppercase text-slate-400">ສະລິບ</span>
                 <a
                   :href="resolveFileUrl(payment.slip_url)"
                   target="_blank"
                   rel="noreferrer"
                   class="font-bold text-[#142b63] underline"
                 >
-                  View slip
+                  ເບິ່ງສະລິບ
                 </a>
               </p>
             </div>
@@ -271,7 +270,7 @@ onMounted(() => {
                   class="rounded-xl bg-[#142b63] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0e214d] disabled:cursor-not-allowed disabled:bg-slate-400"
                   @click="handleUpdateStatus(payment.payment_id, 'completed')"
                 >
-                  {{ updatingPaymentId === payment.payment_id ? 'Saving...' : 'ອະນຸມັດ' }}
+                  {{ updatingPaymentId === payment.payment_id ? 'ກຳລັງບັນທຶກ...' : 'ອະນຸມັດ' }}
                 </button>
 
                 <button

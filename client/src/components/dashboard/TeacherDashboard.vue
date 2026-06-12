@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import HomeFooter from '../home/HomeFooter.vue'
+import { resolveAssetUrl } from '../../api/config'
 import { deleteCourse, getMyCourses, updateCourse } from '../../api/courseApi'
 import { getMyEnrollments } from '../../api/enrollmentApi'
 import { getMyPayments } from '../../api/paymentApi'
@@ -77,18 +78,11 @@ const formatMoney = (amount: string | number) => {
 
 const resolveThumbnail = (url: string | null) => {
   if (!url) return fallbackCourseImage
-
-  if (url.startsWith('http')) {
-    return url
-  }
-
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const resolveFileUrl = (url: string) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `http://localhost:3003${url.startsWith('/') ? url : `/${url}`}`
+  return resolveAssetUrl(url)
 }
 
 const formatDate = (date: string) => {
@@ -159,7 +153,7 @@ const loadDashboard = async () => {
     progressByEnrollment.value = Object.fromEntries(progressEntries)
   } catch (error) {
     console.log(error)
-    errorMessage.value = 'ໂຫຼດຂໍ້ມູນ Dashboard ຜູ້ສອນບໍ່ສຳເລັດ'
+    errorMessage.value = 'ໂຫຼດຂໍ້ມູນແດຊບອດຜູ້ສອນບໍ່ສຳເລັດ'
   } finally {
     isLoading.value = false
   }
@@ -186,7 +180,7 @@ const handleToggleCoursePublish = async (course: Course) => {
 
     successMessage.value = updatedCourse.is_published
       ? 'ເປີດໃຫ້ຜູ້ຮຽນເຫັນຄອສແລ້ວ'
-      : 'ປິດຄອສເປັນ Draft ແລ້ວ'
+      : 'ປິດຄອສເປັນຮ່າງແລ້ວ'
   } catch (error) {
     console.log(error)
     errorMessage.value = 'ອັບເດດສະຖານະຄອສບໍ່ສຳເລັດ'
@@ -236,7 +230,7 @@ onMounted(() => {
             {{ avatarText }}
           </div>
           <div>
-            <h1 class="text-3xl font-black text-[#0f1f4d]">Dashboard ຜູ້ສອນ</h1>
+            <h1 class="text-3xl font-black text-[#0f1f4d]">ແດຊບອດຜູ້ສອນ</h1>
             <p class="mt-1 text-sm font-medium text-slate-500">ສະບາຍດີ, {{ displayName }} · ຈັດການຄອສ ແລະ ຕິດຕາມການຮຽນ</p>
           </div>
         </div>
@@ -261,7 +255,7 @@ onMounted(() => {
       </p>
 
       <p v-if="isLoading" class="mt-8 rounded-2xl bg-white px-6 py-10 text-center text-sm font-bold text-slate-500">
-        Loading teacher dashboard...
+        ກຳລັງໂຫຼດແດຊບອດຜູ້ສອນ...
       </p>
 
       <template v-else>
@@ -337,7 +331,7 @@ onMounted(() => {
                     class="absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-bold shadow-sm"
                     :class="course.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'"
                   >
-                    {{ course.is_published ? 'Published' : 'Draft' }}
+                    {{ course.is_published ? 'ເຜີຍແຜ່' : 'ຮ່າງ' }}
                   </span>
               </div>
 
@@ -370,7 +364,7 @@ onMounted(() => {
                   >
                     {{
                       updatingCourseId === course.course_id
-                        ? 'Saving...'
+                        ? 'ກຳລັງບັນທຶກ...'
                         : course.is_published
                           ? 'ປິດ'
                           : 'ເປີດ'
@@ -459,7 +453,7 @@ onMounted(() => {
               </div>
 
               <div>
-                <p class="text-xs font-bold uppercase text-slate-400">Amount</p>
+                <p class="text-xs font-bold uppercase text-slate-400">ຈຳນວນເງິນ</p>
                 <p class="mt-1 font-number text-xl font-black text-[#f5a400]">{{ formatMoney(payment.amount) }}</p>
               </div>
 

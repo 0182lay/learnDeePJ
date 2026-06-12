@@ -11,7 +11,7 @@ const shouldShowNavbar = computed(() => {
 </script>
 
 <template>
-  <div>
+  <div class="min-h-screen overflow-x-hidden">
     <AppNavbar v-if="shouldShowNavbar" />
     <RouterView />
   </div>

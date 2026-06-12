@@ -10,3 +10,9 @@ server/node_modules/
 server/.env
 server/uploads/*
 !server/uploads/.gitkeep
+
+API.md
+BACKEND_FLOW_GUIDE.md
+FRONTEND_FLOW_GUIDE.md
+PACKAGE_OVERVIEW.md
+README_LO.md

@@ -444,7 +444,7 @@ const removeLesson = async (id: number) => {
 const removeLessonFile = async (fileId: string) => {
   if (!selectedLesson.value?.lessonId) return
 
-  const confirmed = window.confirm('ต้องการลบไฟล์นี้ออกจากบทเรียนใช่ไหม?')
+  const confirmed = window.confirm('ຕ້ອງການລົບໄຟລ໌ນີ້ອອກຈາກບົດຮຽນແທ້ບໍ?')
   if (!confirmed) return
 
   await deleteLessonFile(selectedLesson.value.lessonId, fileId)
@@ -603,7 +603,7 @@ onMounted(() => {
             to="/dashboard"
             class="text-sm font-bold text-slate-500 transition hover:text-[#142b63]"
           >
-            ← ກັບຄືນ Dashboard
+            ← ກັບຄືນແດຊບອດ
           </RouterLink>
 
           <h1 class="mt-3 text-3xl font-black text-slate-950">ແກ້ໄຂຄອສ</h1>
@@ -644,7 +644,7 @@ onMounted(() => {
       <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="text-sm font-black text-[#0f1f4d]">Publish checklist</h2>
+            <h2 class="text-sm font-black text-[#0f1f4d]">ລາຍການກວດກ່ອນເຜີຍແຜ່</h2>
             <p class="mt-1 text-xs font-medium text-slate-500">
               ເພື່ອບໍ່ໃຫ້ຄອສວ່າງໄປສະແດງໃນໜ້າຄອສ
             </p>
@@ -676,7 +676,7 @@ onMounted(() => {
       </section>
 
       <p v-if="isLoading" class="mt-6 rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-        Loading course...
+        ກຳລັງໂຫຼດຄອສ...
       </p>
 
       <p v-if="errorMessage" class="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
