@@ -21,3 +21,6 @@ README_LO.md
 *.log
 .codex-server-err.log
 .codex-server-out.log
+
+# Local test folders
+Images and video Test/
