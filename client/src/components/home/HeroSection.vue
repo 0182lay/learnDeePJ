@@ -4,6 +4,13 @@ import learndeeimg from '../../assets/images/learndeeimg.png'
 
 <template>
   <section class="course-detail-hero relative overflow-hidden">
+    <!-- Premium floating glassmorphic background blobs -->
+    <div class="absolute inset-0 pointer-events-none overflow-hidden opacity-45">
+      <div class="absolute -top-20 -left-20 w-96 h-96 bg-sky-400/50 rounded-full mix-blend-screen filter blur-3xl animate-blob"></div>
+      <div class="absolute top-24 -right-20 w-96 h-96 bg-amber-400/40 rounded-full mix-blend-screen filter blur-3xl animate-blob animation-delay-2000"></div>
+      <div class="absolute -bottom-28 left-1/3 w-96 h-96 bg-purple-400/40 rounded-full mix-blend-screen filter blur-3xl animate-blob animation-delay-4000"></div>
+    </div>
+
     <div
       class="relative mx-auto grid min-h-[460px] max-w-[1680px] items-center gap-6 px-6 py-8 sm:px-8 lg:grid-cols-[0.94fr_1.06fr] lg:px-16 2xl:px-20"
     >
@@ -19,7 +26,7 @@ import learndeeimg from '../../assets/images/learndeeimg.png'
         <div class="mt-7 flex flex-col gap-4 sm:flex-row">
           <RouterLink
             to="/register"
-            class="interactive-motion inline-flex items-center justify-center gap-3 rounded-xl bg-[#f5a400] px-10 py-4 text-center font-extrabold text-slate-950 shadow-[0_16px_34px_rgba(245,164,0,0.2)] transition hover:bg-[#ffb52e]"
+            class="interactive-motion shine-button inline-flex items-center justify-center gap-3 rounded-xl bg-[#f5a400] px-10 py-4 text-center font-extrabold text-slate-950 shadow-[0_16px_34px_rgba(245,164,0,0.2)] transition hover:bg-[#ffb52e]"
           >
             ເລີ່ມຮຽນເລີຍ <span aria-hidden="true">→</span>
           </RouterLink>

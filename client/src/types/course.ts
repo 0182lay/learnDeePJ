@@ -8,6 +8,8 @@ export type Course = {
   is_published: boolean
   average_rating?: number
   review_count?: number
+  lesson_count?: number
+  enrollment_count?: number
   created_at?: string
   updated_at?: string
   category?: {

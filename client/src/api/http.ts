@@ -4,6 +4,11 @@ import { API_URL } from './config'
 export const http = axios.create({
   baseURL: API_URL,
   timeout: 30000,
+  headers: {
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+    Expires: '0',
+  },
 })
 
 http.interceptors.request.use((config) => {

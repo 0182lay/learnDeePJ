@@ -16,3 +16,8 @@ BACKEND_FLOW_GUIDE.md
 FRONTEND_FLOW_GUIDE.md
 PACKAGE_OVERVIEW.md
 README_LO.md
+
+# Logs
+*.log
+.codex-server-err.log
+.codex-server-out.log

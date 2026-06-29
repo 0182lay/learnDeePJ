@@ -35,6 +35,9 @@ export type QuizSubmitAnswer = {
 export type QuizSubmitResult = {
   score: number
   total: number
+  percent: number
+  passed: boolean
+  pass_percent: number
   submission: QuizSubmission
 }
 

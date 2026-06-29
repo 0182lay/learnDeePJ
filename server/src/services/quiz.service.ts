@@ -1,6 +1,8 @@
 import { prisma } from "../lib/prisma";
 import { QuestionType } from "../../generated/prisma/client";
 
+const QUIZ_PASS_PERCENT = 70;
+
 export const getQuizService = async (lesson_id: string) => {
     const quiz = await prisma.quiz.findUnique({
         where: { lesson_id },
@@ -188,13 +190,6 @@ export const submitQuizService = async (
     const total = quiz.questions.length;
 
     // ລົບ submission ເກົ່າຖ້າມີ
-    await prisma.quizSubmission.deleteMany({
-        where: {
-            quiz_id: quiz.quiz_id,
-            student_id,
-        },
-    });
-
     // ບັນທຶກ submission ໃຫມ່
     const submission = await prisma.quizSubmission.create({
         data: {
@@ -205,7 +200,16 @@ export const submitQuizService = async (
         },
     });
 
-    return { submission, score, total };
+    const percent = total ? Math.round((score / total) * 100) : 0;
+
+    return {
+        submission,
+        score,
+        total,
+        percent,
+        passed: percent >= QUIZ_PASS_PERCENT,
+        pass_percent: QUIZ_PASS_PERCENT,
+    };
 };
 export const getQuizResultService = async (
     lesson_id: string,

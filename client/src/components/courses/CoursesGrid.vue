@@ -13,7 +13,7 @@ defineProps<{
 <template>
   <section>
     <div v-if="isLoading" class="grid gap-8 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
-      <article v-for="index in 6" :key="index" class="loading-panel h-[340px]">
+      <article v-for="index in 6" :key="index" class="loading-panel h-[340px] rounded-2xl">
         <div class="h-44 bg-slate-100"></div>
         <div class="space-y-4 p-5">
           <div class="loading-line h-4 w-2/3"></div>
@@ -41,7 +41,7 @@ defineProps<{
         v-for="(course, index) in courses"
         :key="course.course_id"
         :to="`/courses/${course.course_id}`"
-        class="course-card-link animate-card-in block rounded-xl"
+        class="course-card-link animate-card-in block rounded-2xl"
         :style="{ animationDelay: `${Math.min(index, 8) * 55}ms` }"
       >
         <CourseCard

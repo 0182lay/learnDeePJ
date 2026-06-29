@@ -1,5 +1,7 @@
 import { prisma } from "../lib/prisma";
 
+const QUIZ_PASS_PERCENT = 70;
+
 export const getProgressService = async (
     enrollment_id: string,
     student_id: string,
@@ -54,9 +56,32 @@ export const updateProgressService = async (
             lesson_id,
             course_id: enrollment.course_id,
         },
+        include: {
+            quiz: {
+                include: {
+                    questions: {
+                        select: { question_id: true },
+                    },
+                    submissions: {
+                        where: { student_id },
+                    },
+                },
+            },
+        },
     });
 
     if (!lesson) throw new Error("LESSON_NOT_FOUND");
+
+    if (data.is_completed && lesson.quiz && lesson.quiz.questions.length > 0) {
+        const hasPassedQuiz = lesson.quiz.submissions.some((submission) => {
+            if (!submission.total) return false;
+            return (submission.score / submission.total) * 100 >= QUIZ_PASS_PERCENT;
+        });
+
+        if (!hasPassedQuiz) {
+            throw new Error("QUIZ_NOT_PASSED");
+        }
+    }
 
     // upsert — ຖ້າມັນມີຢູ່ແລ້ວ, ອັບເດດ. ຖ້າບໍ່ມີ, ສ້າງອັນໃໝ່.
     const progress = await prisma.learningProgress.upsert({

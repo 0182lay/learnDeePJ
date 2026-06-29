@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { Award, BookOpen, CalendarClock, Globe2, Star, Users, Clock, Trophy } from '@lucide/vue'
 import axios from 'axios'
+import confetti from 'canvas-confetti'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { enrollCourse, getMyEnrollments } from '../api/enrollmentApi'
@@ -13,6 +15,7 @@ import CoursePurchaseCard from '../components/course-detail/CoursePurchaseCard.v
 import CourseReviewsSection from '../components/course-detail/CourseReviewsSection.vue'
 import PaymentDialog from '../components/payment/PaymentDialog.vue'
 import { resolveAssetUrl } from '../api/config'
+import { useAuthStore } from '../stores/authStore'
 import type { CourseDetail } from '../types/course'
 import type { MyEnrollment } from '../types/enrollment'
 import type { Lesson } from '../types/lesson'
@@ -21,6 +24,7 @@ import type { LearningProgress } from '../types/progress'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const lessons = ref<Lesson[]>([])
 const course = ref<CourseDetail | null>(null)
 const isLoading = ref(false)
@@ -37,10 +41,10 @@ const showPaymentDialog = ref(false)
 const activeDetailTab = ref<'overview' | 'curriculum' | 'instructor' | 'reviews'>('overview')
 
 const detailTabs = [
-  { key: 'overview', label: 'เบเบฒเบเบฅเบงเบก' },
-  { key: 'curriculum', label: 'เบซเบผเบฑเบเบชเบนเบ”' },
-  { key: 'instructor', label: 'เบเบนเปเบชเบญเบ' },
-  { key: 'reviews', label: 'เบเบณเป€เบซเบฑเบ' },
+  { key: 'overview', label: 'ພາບລວມ' },
+  { key: 'curriculum', label: 'ຫຼັກສູດ' },
+  { key: 'instructor', label: 'ຜູ້ສອນ' },
+  { key: 'reviews', label: 'ຄວາມເຫັນ' },
 ] as const
 
 const formatPrice = (price: string) => {
@@ -60,8 +64,9 @@ const hasAuthToken = () => !!localStorage.getItem('token')
 const instructorName = computed(() => {
   const profile = course.value?.instructor.profile
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+  const baseName = fullName || course.value?.instructor.email || 'ຜູ້ສອນ'
 
-  return fullName || course.value?.instructor.email || 'เบเบนเปเบชเบญเบ'
+  return baseName.startsWith('ອ.') ? baseName : `ອ. ${baseName}`
 })
 
 const instructorAvatar = computed(() => {
@@ -70,11 +75,24 @@ const instructorAvatar = computed(() => {
     : ''
 })
 
-const instructorInitial = computed(() => instructorName.value.slice(0, 1).toUpperCase())
+const instructorInitial = computed(() => {
+  const profile = course.value?.instructor.profile
+  const name = profile?.first_name || instructorName.value
+  const cleanName = name.startsWith('ອ. ') ? name.slice(3) : name.startsWith('ອ.') ? name.slice(2) : name
+  return cleanName ? cleanName.charAt(0).toUpperCase() : 'ຜ'
+})
+
+const getMockDuration = (lessonCount: number | undefined) => {
+  const count = lessonCount || 0
+  if (count === 40) return 25
+  if (count === 16) return 7
+  if (count === 24) return 11
+  return Math.max(Math.round(count * 0.6), 1)
+}
 
 const lastUpdatedText = computed(() => {
   const date = course.value?.updated_at || course.value?.created_at
-  if (!date) return 'เบญเบฑเบเป€เบ”เบ”เบฅเปเบฒเบชเบธเบ”'
+  if (!date) return 'ບໍ່ມີຂໍ້ມູນວັນທີ'
 
   return new Intl.DateTimeFormat('lo-LA', {
     year: 'numeric',
@@ -89,7 +107,27 @@ const courseRatingText = computed(() => {
 
 const courseReviewText = computed(() => {
   const count = course.value?.review_count || 0
-  return count > 0 ? `${count} เบฃเบตเบงเบดเบง` : 'เบเบฑเบเบเปเปเบกเบตเบฃเบตเบงเบดเบง'
+  return count > 0 ? `${count} ຣີວິວ` : 'ຍັງບໍ່ມີຣີວິວ'
+})
+
+const courseEnrollmentCount = computed(() => course.value?.enrollment_count || 0)
+
+const courseLessonCount = computed(() => {
+  return lessons.value.length || course.value?.lesson_count || 0
+})
+
+const levelLabel = computed(() => {
+  const labels: Record<string, string> = {
+    beginner: 'ເລີ່ມຕົ້ນ',
+    intermediate: 'ປານກາງ',
+    advanced: 'ຂັ້ນສູງ',
+  }
+
+  return course.value?.level ? labels[course.value.level] || course.value.level : 'ເລີ່ມຕົ້ນ'
+})
+
+const showTopRatedBadge = computed(() => {
+  return (course.value?.review_count || 0) > 0 && (course.value?.average_rating || 0) >= 4.5
 })
 
 const refreshEnrollmentState = async (courseId: string) => {
@@ -128,7 +166,7 @@ const fetchCourse = async () => {
     }
   } catch (error) {
     console.log(error)
-    errorMessage.value = 'เปเบซเบผเบ”เบฅเบฒเบเบฅเบฐเบญเบฝเบ”เบเบญเบชเบเปเปเบชเบณเป€เบฅเบฑเบ”'
+    errorMessage.value = 'ໂຫຼດລາຍລະອຽດຄອສບໍ່ສຳເລັດ'
   } finally {
     isLoading.value = false
   }
@@ -158,7 +196,27 @@ const coursePriceNumber = computed(() => {
 const requiresPayment = computed(() => coursePriceNumber.value > 0)
 
 const canAccessCourse = computed(() => {
-  return isAlreadyEnrolled.value && (!requiresPayment.value || !!currentEnrollment.value?.is_paid)
+  return (
+    isAlreadyEnrolled.value &&
+    currentEnrollment.value?.status !== 'dropped' &&
+    (!requiresPayment.value || !!currentEnrollment.value?.is_paid)
+  )
+})
+
+const canAccessLessons = computed(() => {
+  if (canAccessCourse.value) {
+    return true
+  }
+
+  if (authStore.user?.role === 'admin') {
+    return true
+  }
+
+  if (authStore.user?.role === 'instructor') {
+    return course.value?.instructor.user_id === authStore.user.id
+  }
+
+  return false
 })
 
 const coursePayment = computed(() => {
@@ -197,7 +255,7 @@ const handleEnroll = async () => {
   }
 
   if (!course.value?.is_published) {
-    enrollMessage.value = 'เบเบญเบชเบเบตเปเบเบฑเบเบเปเปเป€เบเบตเบ”เบชเบญเบ'
+    enrollMessage.value = 'ຄອສນີ້ຍັງບໍ່ເປີດສອນ'
     return
   }
 
@@ -206,27 +264,44 @@ const handleEnroll = async () => {
     enrollMessage.value = ''
 
     const courseId = route.params.courseId as string
+
+    if (requiresPayment.value && !currentEnrollment.value?.is_paid) {
+      if (hasSubmittedSlip.value) {
+        enrollMessage.value = 'ສົ່ງສະລິບແລ້ວ. ລໍຖ້າການອະນຸມັດຈາກແອດມິນ.'
+        return
+      }
+
+      showPaymentDialog.value = true
+      enrollMessage.value = ''
+      return
+    }
+
     await enrollCourse(courseId)
     await refreshEnrollmentState(courseId)
 
     if (requiresPayment.value && !currentEnrollment.value?.is_paid) {
       if (hasSubmittedSlip.value) {
-        enrollMessage.value = 'เบชเบปเปเบเบชเบฐเบฅเบตเบเปเบฅเปเบง. เบฅเปเบ–เปเบฒเบเบฒเบเบญเบฐเบเบธเบกเบฑเบ”เบเบฒเบเปเบญเบ”เบกเบดเบ.'
+        enrollMessage.value = 'ສົ່ງສະລິບແລ້ວ. ລໍຖ້າການອະນຸມັດຈາກແອດມິນ.'
         return
       }
 
       showPaymentDialog.value = true
-      enrollMessage.value = 'เบฅเบปเบเบ—เบฐเบเบฝเบเปเบฅเปเบง. เบเบฐเบฅเบธเบเบฒเบญเบฑเบเปเบซเบผเบ”เบชเบฐเบฅเบตเบเป€เบเบทเปเบญเปเบซเปเปเบญเบ”เบกเบดเบเบเบงเบ”.'
+      enrollMessage.value = 'ລົງທະບຽນແລ້ວ. ກະລຸນາອັບໂຫຼດສະລິບເພື່ອໃຫ້ແອດມິນກວດ.'
     } else {
-      enrollMessage.value = 'เบฅเบปเบเบ—เบฐเบเบฝเบเบเบญเบชเบชเบณเป€เบฅเบฑเบ”'
+      enrollMessage.value = 'ລົງທະບຽນຄອສສຳເລັດ'
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 },
+      })
     }
   } catch (error: unknown) {
     if (axios.isAxiosError<{ message: string }>(error)) {
-      enrollMessage.value = error.response?.data?.message || 'เบฅเบปเบเบ—เบฐเบเบฝเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
+      enrollMessage.value = error.response?.data?.message || 'ລົງທະບຽນບໍ່ສຳເລັດ'
       return
     }
 
-    enrollMessage.value = 'เบฅเบปเบเบ—เบฐเบเบฝเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
+    enrollMessage.value = 'ລົງທະບຽນບໍ່ສຳເລັດ'
   } finally {
     isEnrolling.value = false
   }
@@ -254,16 +329,21 @@ const handlePaymentSuccess = async (slip: File) => {
     await uploadPaymentSlip(payment.payment_id, slip)
     await refreshEnrollmentState(courseId)
     showPaymentDialog.value = false
-    enrollMessage.value = 'เบชเบปเปเบเบชเบฐเบฅเบตเบเปเบฅเปเบง. เบฅเปเบ–เปเบฒเบเบฒเบเบญเบฐเบเบธเบกเบฑเบ”เบเบฒเบเปเบญเบ”เบกเบดเบ.'
+    confetti({
+      particleCount: 140,
+      spread: 90,
+      origin: { y: 0.6 },
+    })
+    enrollMessage.value = 'ສົ່ງສະລິບແລ້ວ. ລໍຖ້າການອະນຸມັດຈາກແອດມິນ.'
   } catch (error: unknown) {
     showPaymentDialog.value = false
 
     if (axios.isAxiosError<{ message: string }>(error)) {
-      enrollMessage.value = error.response?.data?.message || 'เบญเบฑเบเปเบซเบผเบ”เบชเบฐเบฅเบตเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
+      enrollMessage.value = error.response?.data?.message || 'ອັບໂຫຼດສະລິບບໍ່ສຳເລັດ'
       return
     }
 
-    enrollMessage.value = 'เบญเบฑเบเปเบซเบผเบ”เบชเบฐเบฅเบตเบเบเปเปเบชเบณเป€เบฅเบฑเบ”'
+    enrollMessage.value = 'ອັບໂຫຼດສະລິບບໍ່ສຳເລັດ'
   } finally {
     isEnrolling.value = false
   }
@@ -309,70 +389,97 @@ onMounted(() => {
               to="/courses"
               class="inline-flex items-center gap-2 text-sm font-bold text-white/75 transition hover:text-white"
             >
-              โ เบเบฑเบเบเบทเบเบฅเบฒเบเบเบฒเบเบเบญเบช
+              ← ກັບຄືນລາຍການຄອສ
             </RouterLink>
 
             <div class="mt-7 flex flex-wrap gap-2">
-              <span class="rounded-full bg-secondary px-3 py-1 text-xs font-black text-secondary-foreground">
+              <span class="rounded-full bg-[#f5a400] px-3 py-1 text-xs font-black text-slate-900 shadow-sm">
                 {{ course.category.name }}
               </span>
               <span class="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-black text-white">
-                {{ course.level || 'เป€เบฅเบตเปเบกเบ•เบปเปเบ' }}
+                {{ levelLabel }}
               </span>
-              <span class="rounded-full bg-accent/20 px-3 py-1 text-xs font-black text-emerald-100">
-                Bestseller
+              <span
+                v-if="showTopRatedBadge"
+                class="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-100"
+              >
+                <Award class="h-3.5 w-3.5" /> ຄະແນນສູງ
               </span>
             </div>
 
-            <h1 class="mt-3 max-w-[700px] font-heading text-4xl font-black leading-tight md:text-[2.7rem]">
+            <h1 class="mt-3 max-w-[700px] font-heading text-4xl font-black leading-tight md:text-[2.7rem] text-white">
               {{ course.title }}
             </h1>
 
             <p class="mt-4 max-w-[720px] text-sm font-semibold leading-7 text-white/88 md:text-base">
-              {{ course.description || 'เบเบญเบชเบเบตเปเบเบฑเบเบเปเปเบกเบตเบเบณเบญเบฐเบ—เบดเบเบฒเบ' }}
+              {{ course.description || 'ຄອສນີ້ຍັງບໍ່ມີຄຳອະທິບາຍ' }}
             </p>
 
             <div class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-white/88">
-              <span class="text-secondary">โ…โ…โ…โ…โ… <span class="text-white">{{ courseRatingText }}</span></span>
+              <div class="flex items-center gap-1">
+                <div class="flex items-center gap-0.5 text-[#f5a400]">
+                  <Star
+                    v-for="i in 5"
+                    :key="i"
+                    class="h-3.5 w-3.5"
+                    :class="i <= Math.round(Number(courseRatingText)) ? 'fill-current' : 'opacity-35'"
+                  />
+                </div>
+                <span class="text-white ml-1">{{ courseRatingText }}</span>
+              </div>
               <span>({{ courseReviewText }})</span>
-              <span>๐‘ฅ 1,250 เบเบฑเบเบฎเบฝเบ</span>
-              <span>๐ เบเบฒเบชเบฒเบฅเบฒเบง</span>
-              <span>โ—ท เบญเบฑเบเป€เบ”เบ” {{ lastUpdatedText }}</span>
+              <span class="inline-flex items-center gap-1">
+                <Users class="h-3.5 w-3.5 text-white/70" /> {{ courseEnrollmentCount.toLocaleString('en-US') }} ນັກຮຽນ
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <Globe2 class="h-3.5 w-3.5 text-white/70" /> ພາສາລາວ
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <CalendarClock class="h-3.5 w-3.5 text-white/70" /> ອັບເດດລ່າສຸດ {{ lastUpdatedText }}
+              </span>
             </div>
 
             <div class="mt-7 flex items-center gap-3">
               <span v-if="instructorAvatar" class="h-12 w-12 overflow-hidden rounded-full bg-white/15">
                 <img :src="instructorAvatar" :alt="instructorName" class="h-full w-full object-cover" />
               </span>
-              <span v-else class="grid h-12 w-12 place-items-center rounded-full bg-secondary text-lg font-black text-secondary-foreground">
+              <span v-else class="grid h-12 w-12 place-items-center rounded-full bg-[#f5a400] text-lg font-black text-slate-950">
                 {{ instructorInitial }}
               </span>
               <div>
-                <p class="text-xs font-bold text-white/58">เบชเปเบฒเบเปเบ”เบ</p>
-                <p class="font-black text-white">{{ instructorName }}</p>
+                <p class="text-[10px] font-bold text-white/58">ສ້າງໂດຍ</p>
+                <p class="font-black text-white text-sm">{{ instructorName }}</p>
               </div>
             </div>
 
-            <div class="mt-28 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                <p class="text-xl text-secondary">โ–ฑ</p>
-                <p class="mt-4 font-heading text-xl font-black">{{ lessons.length }}</p>
-                <p class="text-xs font-bold text-white/62">เบเบปเบ”เบฎเบฝเบ</p>
+            <div class="mt-28 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div class="h-[140px] rounded-2xl border border-white/15 bg-white/8 p-5 backdrop-blur-md flex flex-col justify-between">
+                <BookOpen class="h-5 w-5 text-[#f5a400]" />
+                <div>
+                  <p class="font-number text-2xl font-black text-white leading-none">{{ courseLessonCount }}</p>
+                  <p class="text-[11px] font-bold text-white/60 mt-1">ບົດຮຽນ</p>
+                </div>
               </div>
-              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                <p class="text-xl text-secondary">โ—ท</p>
-                <p class="mt-4 font-heading text-xl font-black">12 เบเบก</p>
-                <p class="text-xs font-bold text-white/62">เป€เบงเบฅเบฒเบฎเบฝเบ</p>
+              <div class="h-[140px] rounded-2xl border border-white/15 bg-white/8 p-5 backdrop-blur-md flex flex-col justify-between">
+                <Clock class="h-5 w-5 text-[#f5a400]" />
+                <div>
+                  <p class="font-number text-2xl font-black text-white leading-none">{{ getMockDuration(courseLessonCount) }} ຊມ</p>
+                  <p class="text-[11px] font-bold text-white/60 mt-1">ຄວາມຍາວ</p>
+                </div>
               </div>
-              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                <p class="text-xl text-secondary">๐‘ฅ</p>
-                <p class="mt-4 font-heading text-xl font-black">1,250</p>
-                <p class="text-xs font-bold text-white/62">เบเบฑเบเบฎเบฝเบ</p>
+              <div class="h-[140px] rounded-2xl border border-white/15 bg-white/8 p-5 backdrop-blur-md flex flex-col justify-between">
+                <Users class="h-5 w-5 text-[#f5a400]" />
+                <div>
+                  <p class="font-number text-2xl font-black text-white leading-none">{{ courseEnrollmentCount.toLocaleString('en-US') }}</p>
+                  <p class="text-[11px] font-bold text-white/60 mt-1">ນັກຮຽນ</p>
+                </div>
               </div>
-              <div class="h-[170px] rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                <p class="text-xl text-secondary">๐</p>
-                <p class="mt-4 font-heading text-xl font-black">98%</p>
-                <p class="text-xs font-bold text-white/62">เบเบงเบฒเบกเบเปเปเบ</p>
+              <div class="h-[140px] rounded-2xl border border-white/15 bg-white/8 p-5 backdrop-blur-md flex flex-col justify-between">
+                <Trophy class="h-5 w-5 text-[#f5a400]" />
+                <div>
+                  <p class="font-number text-2xl font-black text-white leading-none">98%</p>
+                  <p class="text-[11px] font-bold text-white/60 mt-1">ຄວາມພໍໃຈ</p>
+                </div>
               </div>
             </div>
           </div>
@@ -421,9 +528,9 @@ onMounted(() => {
           <div class="animate-card-in p-5 md:p-6">
             <div v-if="activeDetailTab === 'overview'" class="space-y-6">
               <div>
-                <h2 class="font-heading text-2xl font-black text-card-foreground">เบเบฒเบเบฅเบงเบก</h2>
+                <h2 class="font-heading text-2xl font-black text-card-foreground">ພາບລວມ</h2>
                 <p class="mt-3 text-base leading-8 text-muted-foreground">
-                  {{ course.description || 'เบเบญเบชเบเบตเปเบเบฑเบเบเปเปเบกเบตเบเบณเบญเบฐเบ—เบดเบเบฒเบ' }}
+                  {{ course.description || 'ຄອສນີ້ຍັງບໍ່ມີຄຳອະທິບາຍ' }}
                 </p>
               </div>
 
@@ -435,6 +542,7 @@ onMounted(() => {
               :course-id="course.course_id"
               :lessons="lessons"
               :current-enrollment-id="currentEnrollmentId"
+              :can-access-lessons="canAccessLessons"
               :is-lesson-completed="isLessonCompleted"
               @complete-lesson="handleCompleteLesson"
             />
@@ -449,16 +557,16 @@ onMounted(() => {
               <div>
                 <h2 class="font-heading text-2xl font-black text-card-foreground">{{ instructorName }}</h2>
                 <p class="mt-2 text-base leading-8 text-muted-foreground">
-                  เบเบนเปเบชเบญเบเบเบญเบเบเบญเบชเบเบตเป เบเปเบญเบกเบเบฒเบเบนเปเบฎเบฝเบเปเบเบ•เบฒเบกเบเบปเบ”เบฎเบฝเบเปเบเบเป€เบเบฑเบเบเบฑเปเบเบ•เบญเบ.
+                  ຜູ້ສອນຂອງຄອສນີ້ ພ້ອມພາຜູ້ຮຽນໄປຕາມບົດຮຽນແບບເປັນຂັ້ນຕອນ.
                 </p>
                 <div class="mt-5 grid gap-3 sm:grid-cols-3">
                   <div class="rounded-xl bg-muted p-4">
                     <p class="font-heading text-xl font-black text-primary">1+</p>
-                    <p class="text-xs font-bold text-muted-foreground">เบเบญเบช</p>
+                    <p class="text-xs font-bold text-muted-foreground">ຄອສ</p>
                   </div>
                   <div class="rounded-xl bg-muted p-4">
                     <p class="font-heading text-xl font-black text-primary">350+</p>
-                    <p class="text-xs font-bold text-muted-foreground">เบเบฑเบเบฎเบฝเบ</p>
+                    <p class="text-xs font-bold text-muted-foreground">ນັກຮຽນ</p>
                   </div>
                   <div class="rounded-xl bg-muted p-4">
                     <p class="font-heading text-xl font-black text-primary">{{ courseRatingText }}</p>

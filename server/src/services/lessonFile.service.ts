@@ -1,19 +1,42 @@
 import { FileType } from "../../generated/prisma/enums";
 import { prisma } from "../lib/prisma";
 import { deleteUploadedFile } from "../utils/uploadFile";
+import { assertLessonAccessByLessonId } from "./lesson.service";
 
-export const getLessonFilesService = async (lesson_id: string) => {
-    const lesson = await prisma.lesson.findUnique({
-        where: { lesson_id },
+export const getLessonFilesService = async (
+    lesson_id: string,
+    userId: string,
+    userRole: string,
+) => {
+    await assertLessonAccessByLessonId(lesson_id, {
+        userId,
+        role: userRole,
     });
-
-    if (!lesson) throw new Error("LESSON_NOT_FOUND");
 
     const files = await prisma.lessonFile.findMany({
         where: { lesson_id },
         orderBy: { order_index: "asc" },
     });
     return files;
+};
+
+export const getLessonFileContentService = async (
+    file_id: string,
+    userId: string,
+    userRole: string,
+) => {
+    const file = await prisma.lessonFile.findUnique({
+        where: { file_id },
+    });
+
+    if (!file) throw new Error("FILE_NOT_FOUND");
+
+    await assertLessonAccessByLessonId(file.lesson_id, {
+        userId,
+        role: userRole,
+    });
+
+    return file;
 };
 
 export const createLessonFileService = async (

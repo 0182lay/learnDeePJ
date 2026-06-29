@@ -42,16 +42,18 @@ const faqs = [
 
         <div class="mt-7 grid gap-3 sm:grid-cols-3">
           <div class="rounded-2xl bg-slate-50 p-4">
-            <p class="font-number text-2xl font-black text-[#294a78]">4.8</p>
+            <p class="font-number text-2xl font-black text-[#294a78]">
+              {{ course.review_count ? (course.average_rating || 0).toFixed(1) : '0.0' }}
+            </p>
             <p class="mt-1 text-xs font-bold text-slate-500">Rating</p>
           </div>
           <div class="rounded-2xl bg-slate-50 p-4">
-            <p class="font-number text-2xl font-black text-[#294a78]">1,250+</p>
+            <p class="font-number text-2xl font-black text-[#294a78]">{{ course.enrollment_count || 0 }}</p>
             <p class="mt-1 text-xs font-bold text-slate-500">Students</p>
           </div>
           <div class="rounded-2xl bg-slate-50 p-4">
-            <p class="font-number text-2xl font-black text-[#294a78]">12</p>
-            <p class="mt-1 text-xs font-bold text-slate-500">Courses</p>
+            <p class="font-number text-2xl font-black text-[#294a78]">{{ course.lesson_count || 0 }}</p>
+            <p class="mt-1 text-xs font-bold text-slate-500">Lessons</p>
           </div>
         </div>
       </article>

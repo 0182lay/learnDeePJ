@@ -6,12 +6,12 @@ import {
     updateLesson,
     deleteLesson,
 } from "../controllers/lesson.controller";
-import { auth } from "../middlewares/auth.middleware";
+import { auth, optionalAuth } from "../middlewares/auth.middleware";
 import { authorizeRoles } from "../middlewares/authorizeRoles";
 const router = express.Router({ mergeParams: true }); //mergeParams: true ດຶງ params ມາໃຊ້
 
 ///api/courses/:courseId/lessons  :courseId=154655
-router.get("/courses/:courseId/lessons", auth, getLessons);
+router.get("/courses/:courseId/lessons", optionalAuth, getLessons);
 
 router.get("/courses/:courseId/lessons/:lessonId", auth, getLessonById);
 

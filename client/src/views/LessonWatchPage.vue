@@ -2,7 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import axios from 'axios'
-import { resolveAssetUrl } from '../api/config'
+import confetti from 'canvas-confetti'
+import { API_URL, resolveAssetUrl } from '../api/config'
 import { getCourseById } from '../api/courseApi'
 import { getMyEnrollments } from '../api/enrollmentApi'
 import { getLessonById, getLessonsByCourseId } from '../api/lessonApi'
@@ -81,6 +82,14 @@ const isQuizPassed = computed(() => {
   return quizResult.value ? quizScorePercent.value >= 70 : false
 })
 
+const lessonHasQuiz = computed(() => {
+  return Boolean(quiz.value && quiz.value.questions.length > 0)
+})
+
+const canMarkCurrentLessonComplete = computed(() => {
+  return !lessonHasQuiz.value || isQuizPassed.value
+})
+
 const currentQuizQuestion = computed(() => {
   return quiz.value?.questions[currentQuizQuestionIndex.value] || null
 })
@@ -152,11 +161,21 @@ const getPublicFileUrl = (url: string | undefined) => {
   return resolveAssetUrl(url)
 }
 
-const videoUrl = computed(() => getPublicFileUrl(videoFile.value?.file_url))
+const getProtectedLessonFileUrl = (fileId: string | undefined) => {
+  const token = localStorage.getItem('token')
+
+  if (!fileId || !token) {
+    return ''
+  }
+
+  return `${API_URL}/lesson-files/${fileId}/content?token=${encodeURIComponent(token)}`
+}
+
+const videoUrl = computed(() => getProtectedLessonFileUrl(videoFile.value?.file_id))
 
 const imageUrl = computed(() => getPublicFileUrl(imageFile.value?.file_url))
 
-const documentUrl = computed(() => getPublicFileUrl(documentFile.value?.file_url))
+const documentUrl = computed(() => getProtectedLessonFileUrl(documentFile.value?.file_id))
 
 const downloadableUrl = computed(() => videoUrl.value || imageUrl.value || documentUrl.value)
 
@@ -257,9 +276,16 @@ const markCurrentLessonComplete = async () => {
   }
 
   const targetLessonId = lesson.value.lesson_id
+
+  if (!canMarkCurrentLessonComplete.value) {
+    completeMessage.value = 'ຕ້ອງຜ່ານແບບທົດສອບກ່ອນ ຈຶ່ງຈະນັບວ່າຮຽນຈົບບົດນີ້'
+    return
+  }
+
   localCompletedLessonIds.value.push(targetLessonId)
 
   if (!currentEnrollmentId.value) {
+    localCompletedLessonIds.value = localCompletedLessonIds.value.filter((id) => id !== targetLessonId)
     completeMessage.value = 'ສະແດງວ່າຮຽນຈົບແລ້ວ. ຖ້າຕ້ອງການບັນທຶກຖາວອນ ຕ້ອງລົງທະບຽນຄອສກ່ອນ.'
     return
   }
@@ -284,6 +310,11 @@ const markCurrentLessonComplete = async () => {
     completeMessage.value = 'ບັນທຶກວ່າຮຽນຈົບບົດນີ້ແລ້ວ'
   } catch (error) {
     console.log(error)
+    localCompletedLessonIds.value = localCompletedLessonIds.value.filter((id) => id !== targetLessonId)
+    if (axios.isAxiosError<{ message: string }>(error)) {
+      completeMessage.value = error.response?.data?.message || 'ບັນທຶກ progress ບໍ່ສຳເລັດ'
+      return
+    }
     completeMessage.value = 'ສະແດງວ່າຮຽນຈົບແລ້ວ ແຕ່ບັນທຶກ progress ບໍ່ສຳເລັດ'
   } finally {
     markingLessonId.value = ''
@@ -312,8 +343,13 @@ const submitCurrentQuiz = async () => {
     const result = await submitQuiz(lessonId.value, answers)
     quizResult.value = result.submission
 
-    if (result.total > 0 && Math.round((result.score / result.total) * 100) >= 70) {
+    if (result.passed) {
       quizMessage.value = 'ຜ່ານແບບທົດສອບແລ້ວ'
+      confetti({
+        particleCount: 160,
+        spread: 85,
+        origin: { y: 0.5 }
+      })
       await markCurrentLessonComplete()
     } else {
       quizMessage.value = 'ຄະແນນຍັງບໍ່ຜ່ານ ລອງເຮັດອີກຄັ້ງ'
@@ -462,11 +498,10 @@ const loadLesson = async () => {
 
     completeMessage.value = ''
 
-    const [courseData, lessonsData, lessonData, enrollments] = await Promise.all([
+    const [courseData, lessonsData, lessonData] = await Promise.all([
       getCourseById(courseId.value),
       getLessonsByCourseId(courseId.value),
       getLessonById(courseId.value, lessonId.value),
-      getMyEnrollments(),
     ])
 
     course.value = courseData
@@ -483,13 +518,18 @@ const loadLesson = async () => {
     currentTime.value = 0
     videoDuration.value = 0
 
-    const currentEnrollment = enrollments.find((enrollment) => {
-      return enrollment.course_id === courseId.value
-    })
+    try {
+      const enrollments = await getMyEnrollments()
+      const currentEnrollment = enrollments.find((enrollment) => {
+        return enrollment.course_id === courseId.value
+      })
 
-    if (currentEnrollment) {
-      currentEnrollmentId.value = currentEnrollment.enrollment_id
-      progressList.value = await getProgress(currentEnrollment.enrollment_id)
+      if (currentEnrollment) {
+        currentEnrollmentId.value = currentEnrollment.enrollment_id
+        progressList.value = await getProgress(currentEnrollment.enrollment_id)
+      }
+    } catch (error) {
+      console.log(error)
     }
 
     try {
@@ -509,6 +549,21 @@ const loadLesson = async () => {
     }
   } catch (error) {
     console.log(error)
+
+    if (axios.isAxiosError<{ message: string }>(error)) {
+      if (error.response?.status === 402 || error.response?.status === 403) {
+        errorMessage.value =
+          error.response.data?.message ||
+          'ບົດຮຽນນີ້ຖືກລັອກ. ກະລຸນາລົງທະບຽນ ຫຼື ລໍຖ້າການອະນຸມັດກ່ອນ.'
+        return
+      }
+
+      if (error.response?.status === 404) {
+        errorMessage.value = 'ບໍ່ພົບບົດຮຽນນີ້'
+        return
+      }
+    }
+
     errorMessage.value = 'ໂຫຼດບົດຮຽນບໍ່ສຳເລັດ'
   } finally {
     isLoading.value = false
@@ -530,58 +585,121 @@ watch(
     loadLesson()
   },
 )
+
+interface Sparkle {
+  id: number
+  x: number
+  y: number
+  color: string
+  size: number
+  tx: number
+  ty: number
+}
+
+const sparkles = ref<Sparkle[]>([])
+let sparkleId = 0
+
+const spawnSparkles = (e: MouseEvent) => {
+  const colors = ['#f5a400', '#294a78', '#10b981', '#6366f1', '#ec4899', '#f43f5e']
+  const container = e.currentTarget as HTMLElement
+  const rect = container.getBoundingClientRect()
+  const clickX = e.clientX - rect.left
+  const clickY = e.clientY - rect.top
+
+  for (let i = 0; i < 8; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const distance = Math.random() * 45 + 15
+    const tx = Math.cos(angle) * distance
+    const ty = Math.sin(angle) * distance
+    const size = Math.random() * 6 + 3
+    const color = colors[Math.floor(Math.random() * colors.length)] || '#f5a400'
+
+    const newSparkle = {
+      id: sparkleId++,
+      x: clickX,
+      y: clickY,
+      color,
+      size,
+      tx,
+      ty,
+    }
+    sparkles.value.push(newSparkle)
+
+    setTimeout(() => {
+      sparkles.value = sparkles.value.filter((s) => s.id !== newSparkle.id)
+    }, 800)
+  }
+}
 </script>
 
 <template>
-  <main class="min-h-screen bg-[#f5f7fb]">
+  <main class="min-h-screen bg-background text-foreground transition-colors duration-300">
     <section class="flex min-h-screen flex-col">
-      <header class="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 text-[#142b63] shadow-sm lg:px-10">
+      <header class="flex h-16 items-center justify-between border-b border-border bg-card px-6 text-foreground shadow-sm lg:px-10">
         <div class="flex min-w-0 items-center gap-4">
           <RouterLink
             :to="`/courses/${courseId}`"
-            class="rounded-xl px-3 py-2 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-[#142b63]"
+            class="rounded-xl px-3 py-2 text-sm font-bold text-muted-foreground transition hover:bg-muted hover:text-primary"
           >
             ← ກັບຄືນ
           </RouterLink>
 
-          <div class="h-6 w-px bg-slate-200"></div>
+          <div class="h-6 w-px bg-border"></div>
 
-          <p class="truncate text-sm font-black text-[#142b63] md:text-base">
+          <p class="truncate text-sm font-black text-foreground md:text-base">
             {{ course?.title || 'Course' }}
           </p>
         </div>
 
         <RouterLink
           :to="`/courses/${courseId}`"
-          class="grid h-9 w-9 place-items-center rounded-xl text-lg font-bold text-slate-500 transition hover:bg-slate-100 hover:text-[#142b63]"
+          class="grid h-9 w-9 place-items-center rounded-xl text-lg font-bold text-muted-foreground transition hover:bg-muted hover:text-primary"
           aria-label="Close lesson"
         >
           ×
         </RouterLink>
       </header>
 
-      <section v-if="isLoading" class="grid flex-1 place-items-center text-slate-500">
+      <section v-if="isLoading" class="grid flex-1 place-items-center text-muted-foreground">
         ກຳລັງໂຫຼດ...
       </section>
 
       <section v-else-if="errorMessage" class="grid flex-1 place-items-center px-6">
-        <p class="rounded-2xl bg-red-50 px-5 py-4 text-red-600">{{ errorMessage }}</p>
+        <p class="rounded-2xl bg-red-50/10 border border-red-500/20 px-5 py-4 text-red-600 dark:text-red-400">{{ errorMessage }}</p>
       </section>
 
       <section v-else-if="lesson" :class="lessonLayoutClass">
         <div
           ref="videoShell"
           class="flex flex-col"
-          :class="[playerHeightClass, isExercise ? 'bg-[#f5f7fb]' : 'bg-black']"
+          :class="[playerHeightClass, isExercise ? 'bg-background' : 'bg-black']"
         >
           <div
             class="grid flex-1 place-items-center p-0"
-            :class="isExercise ? 'bg-[#f5f7fb] px-6 py-8' : 'bg-black'"
+            :class="isExercise ? 'bg-background px-6 py-8' : 'bg-black'"
           >
             <div
               v-if="isExercise"
-              class="w-full rounded-[1.75rem] bg-white p-6 shadow-[0_24px_70px_rgba(15,31,77,0.10)] ring-1 ring-slate-200/80 md:p-8"
+              @click="spawnSparkles"
+              class="relative overflow-hidden w-full rounded-[1.75rem] bg-card p-6 shadow-[0_24px_70px_rgba(15,31,77,0.10)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.4)] ring-1 ring-border md:p-8 cursor-default"
             >
+              <!-- Click sparkle particles layer -->
+              <div class="absolute inset-0 pointer-events-none z-50">
+                <span
+                  v-for="sparkle in sparkles"
+                  :key="sparkle.id"
+                  class="absolute rounded-full animate-sparkle"
+                  :style="{
+                    left: `${sparkle.x}px`,
+                    top: `${sparkle.y}px`,
+                    width: `${sparkle.size}px`,
+                    height: `${sparkle.size}px`,
+                    backgroundColor: sparkle.color,
+                    '--tx': `${sparkle.tx}px`,
+                    '--ty': `${sparkle.ty}px`
+                  }"
+                ></span>
+              </div>
               <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <span
@@ -993,7 +1111,11 @@ watch(
               <div class="flex gap-3">
                 <button
                   type="button"
-                  :disabled="isLessonCompleted(lesson.lesson_id) || Boolean(markingLessonId)"
+                  :disabled="
+                    isLessonCompleted(lesson.lesson_id) ||
+                    Boolean(markingLessonId) ||
+                    !canMarkCurrentLessonComplete
+                  "
                   class="rounded-xl bg-[#142b63] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0e214d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                   @click="markCurrentLessonComplete"
                 >

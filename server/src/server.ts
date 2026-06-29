@@ -15,8 +15,19 @@ const __dirname = path.dirname(__filename);
 const routersPath = path.join(__dirname, "routers");
 
 app.use(cors());
+app.disable("etag");
 app.use(express.json());
 app.use(morgan("dev"));
+app.use("/api", (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    return next();
+});
+app.use("/uploads/videos", (_req, res) => {
+    return res.status(403).json({ message: "PROTECTED_LESSON_FILE" });
+});
+app.use("/uploads/documents", (_req, res) => {
+    return res.status(403).json({ message: "PROTECTED_LESSON_FILE" });
+});
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // ✅ ລໍຖ້າໃຫ້ທຸກເສັ້ນທາງໂຫຼດກ່ອນ ຈາກນັ້ນເລີ່ມເຊີບເວີ.

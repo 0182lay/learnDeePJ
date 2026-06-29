@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  Filter,
+  ChevronLeft,
+} from '@lucide/vue'
 import { computed, ref } from 'vue'
 import type { Category } from '../../types/category'
 
@@ -14,6 +18,19 @@ const emit = defineEmits<{
   'update:selectedLevel': [value: string]
   'update:selectedPrice': [value: string]
 }>()
+
+const getCategoryColorClass = (categoryName: string) => {
+  const name = categoryName.toLowerCase()
+  if (name.includes('program') || name.includes('web') || name.includes('ພັດທະນາ')) return 'bg-cyan-100 text-cyan-600'
+  if (name.includes('design') || name.includes('ອອກແບບ')) return 'bg-rose-100 text-rose-500'
+  if (name.includes('business') || name.includes('ທຸລະກິດ')) return 'bg-amber-100 text-amber-700'
+  if (name.includes('market') || name.includes('ຕະຫຼາດ')) return 'bg-indigo-100 text-indigo-600'
+  if (name.includes('language') || name.includes('ພາສາ')) return 'bg-purple-100 text-purple-600'
+  if (name.includes('tech') || name.includes('ເຕັກໂນໂລ')) return 'bg-sky-100 text-sky-600'
+  if (name.includes('finance') || name.includes('ການເງິນ')) return 'bg-orange-100 text-orange-600'
+  if (name.includes('health') || name.includes('ສຸຂະພາບ')) return 'bg-emerald-100 text-emerald-600'
+  return 'bg-slate-100 text-slate-600'
+}
 
 const categoryOptions = computed(() => {
   const totalCourses = props.categories.reduce((total, category) => {
@@ -59,16 +76,15 @@ const isCollapsed = ref(false)
       @click="isCollapsed = !isCollapsed"
     >
       <h2 v-if="!isCollapsed" class="flex items-center gap-3 text-lg font-black text-slate-950">
-        <span class="text-[#f5a400]">▽</span>
-        ຕົວກອງ
+        <Filter class="h-4 w-4 text-[#f5a400]" />
+        ຕົວຕອງ
       </h2>
 
-      <span
-        class="text-2xl font-semibold leading-none text-slate-950 transition"
-        :class="isCollapsed ? '' : 'rotate-180'"
-      >
-        ›
-      </span>
+      <ChevronLeft
+        v-if="!isCollapsed"
+        class="h-5 w-5 text-slate-500 transition duration-300"
+        :class="isCollapsed ? 'rotate-180' : ''"
+      />
     </button>
 
     <div v-if="isCollapsed" class="flex flex-col items-center gap-3.5 px-2 py-4 text-slate-950">
@@ -129,7 +145,7 @@ const isCollapsed = ref(false)
             v-for="category in categoryOptions"
             :key="category.value"
             type="button"
-            class="interactive-motion flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-bold transition"
+            class="interactive-motion flex w-full items-center justify-between rounded-2xl px-4 py-2.5 text-left text-sm font-bold transition"
             :class="
               selectedCategory === category.value
                 ? 'bg-[#294a78] text-white shadow-[0_10px_22px_rgba(41,74,120,0.16)]'
@@ -138,11 +154,18 @@ const isCollapsed = ref(false)
             @click="emit('update:selectedCategory', category.value)"
           >
             <span class="flex min-w-0 items-center gap-2.5">
-              <span class="text-[15px] leading-none">{{ category.icon }}</span>
+              <span
+                v-if="selectedCategory !== category.value && category.value !== 'all'"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[15px] leading-none"
+                :class="getCategoryColorClass(category.label)"
+              >
+                {{ category.icon }}
+              </span>
+              <span v-else class="text-[15px] leading-none shrink-0">{{ category.icon }}</span>
               <span class="truncate">{{ category.label }}</span>
             </span>
 
-            <span class="text-xs font-bold opacity-70">{{ category.count }}</span>
+            <span class="text-xs font-bold" :class="selectedCategory === category.value ? 'text-white/80' : 'text-slate-400'">{{ category.count }}</span>
           </button>
         </div>
       </section>
@@ -170,8 +193,8 @@ const isCollapsed = ref(false)
             class="interactive-motion rounded-full border px-4 py-2 text-xs font-black transition"
             :class="
               selectedLevel === level.value
-                ? 'border-[#294a78] bg-[#294a78] text-white'
-                : 'border-slate-200 bg-white text-slate-500 hover:border-[#294a78]'
+                ? 'border-[#f5a400] bg-[#f5a400] text-white shadow-[0_4px_12px_rgba(245,164,0,0.2)]'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-[#f5a400]'
             "
             @click="emit('update:selectedLevel', level.value)"
           >

@@ -19,7 +19,7 @@ export const getProgress = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "ບໍ່ພົບ Enrollment" });
         }
         if (error.message === "FORBIDDEN") {
-            return res.status(403).json({ message: "ບໍ່ມີສິດດູ Progress" });
+            return res.status(403).json({ message: "ບໍ່ມີສິດເບິ່ງ Progress" });
         }
         return res
             .status(500)
@@ -54,6 +54,11 @@ export const updateProgress = async (req: Request, res: Response) => {
         }
         if (error.message === "FORBIDDEN") {
             return res.status(403).json({ message: "ບໍ່ມີສິດອັບເດດ Progress" });
+        }
+        if (error.message === "QUIZ_NOT_PASSED") {
+            return res.status(400).json({
+                message: "ຕ້ອງຜ່ານແບບທົດສອບກ່ອນ ຈຶ່ງຈະນັບວ່າຮຽນຈົບບົດນີ້",
+            });
         }
         return res.status(500).json({ message: "ອັບເດດ Progress ບໍ່ສຳເລັດ" });
     }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowUpDown, BookOpen, TrendingUp, Users } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getCategories } from '../api/categoryApi'
@@ -22,6 +23,7 @@ const searchText = ref('')
 const selectedCategory = ref(typeof route.query.category === 'string' ? route.query.category : 'all')
 const selectedLevel = ref('all')
 const selectedPrice = ref('all')
+const selectedSort = ref<'popular' | 'latest' | 'price-low'>('popular')
 
 const fetchCategories = async () => {
   try {
@@ -63,8 +65,20 @@ const publishedCoursesCount = computed(() => {
   return courses.value.filter((course) => course.is_published).length
 })
 
+const totalEnrollmentCount = computed(() => {
+  return courses.value.reduce((total, course) => {
+    return course.is_published ? total + (course.enrollment_count || 0) : total
+  }, 0)
+})
+
+const totalLessonCount = computed(() => {
+  return courses.value.reduce((total, course) => {
+    return course.is_published ? total + (course.lesson_count || 0) : total
+  }, 0)
+})
+
 const filteredCourses = computed(() => {
-  return courses.value.filter((course) => {
+  const filtered = courses.value.filter((course) => {
     if (!course.is_published) {
       return false
     }
@@ -94,6 +108,21 @@ const filteredCourses = computed(() => {
 
     return matchesSearch && matchesLevel && matchesCategory && matchesPrice
   })
+
+  return [...filtered].sort((firstCourse, secondCourse) => {
+    if (selectedSort.value === 'latest') {
+      return (
+        new Date(secondCourse.created_at || 0).getTime() -
+        new Date(firstCourse.created_at || 0).getTime()
+      )
+    }
+
+    if (selectedSort.value === 'price-low') {
+      return getCoursePrice(firstCourse.price) - getCoursePrice(secondCourse.price)
+    }
+
+    return (secondCourse.enrollment_count || 0) - (firstCourse.enrollment_count || 0)
+  })
 })
 
 const enrollmentStates = computed<Record<string, 'none' | 'active' | 'pending'>>(() => {
@@ -119,29 +148,29 @@ onMounted(() => {
 
 <template>
   <main class="soft-page min-h-screen">
-    <CoursesHero v-model="searchText" />
+    <CoursesHero v-model="searchText" :course-count="publishedCoursesCount" />
 
-    <section class="border-b border-slate-200 bg-white">
+    <section class="border-b border-border bg-card">
       <div class="mx-auto flex max-w-[1680px] flex-wrap items-center justify-center gap-x-10 gap-y-3 px-6 py-5 text-sm sm:px-8 lg:px-16 2xl:px-20">
-        <p class="inline-flex items-center gap-2 font-bold text-slate-500">
-          <span class="text-[#f5a400]">↗</span>
-          <span class="font-number font-black text-slate-950">{{ publishedCoursesCount }}</span>
+        <p class="inline-flex items-center gap-2 font-bold text-muted-foreground">
+          <TrendingUp class="h-4 w-4 text-[#f5a400]" />
+          <span class="font-number font-black text-foreground">{{ publishedCoursesCount }}</span>
           ຄອສທີ່ເຜີຍແຜ່
         </p>
-        <p class="inline-flex items-center gap-2 font-bold text-slate-500">
-          <span class="text-emerald-500">◇</span>
-          <span class="font-number font-black text-slate-950">12,500+</span>
+        <p class="inline-flex items-center gap-2 font-bold text-muted-foreground">
+          <Users class="h-4 w-4 text-emerald-500" />
+          <span class="font-number font-black text-foreground">{{ totalEnrollmentCount }}</span>
           ນັກຮຽນ
         </p>
-        <p class="inline-flex items-center gap-2 font-bold text-slate-500">
-          <span class="text-[#f5a400]">▱</span>
-          <span class="font-number font-black text-slate-950">120+</span>
+        <p class="inline-flex items-center gap-2 font-bold text-muted-foreground">
+          <BookOpen class="h-4 w-4 text-[#f5a400]" />
+          <span class="font-number font-black text-foreground">{{ totalLessonCount }}</span>
           ບົດຮຽນ
         </p>
       </div>
     </section>
 
-    <section class="mx-auto max-w-[1680px] px-6 py-8 sm:px-8 lg:px-16 2xl:px-20">
+    <section v-scroll-reveal class="mx-auto max-w-[1680px] px-6 py-8 sm:px-8 lg:px-16 2xl:px-20">
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <CoursesFilterSidebar
           v-model:selected-category="selectedCategory"
@@ -152,22 +181,20 @@ onMounted(() => {
         />
 
         <div class="min-w-0 flex-1">
-          <div class="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="space-y-1">
-              <p class="text-base font-bold text-slate-500">
-                ສະແດງ <span class="font-black text-[#294a78]">{{ filteredCourses.length }}</span> ຄອສ
-              </p>
-              <h1 class="text-2xl font-black text-slate-950">ຄອສຮຽນທັງໝົດ</h1>
-            </div>
+          <div class="mb-7 flex items-center justify-between">
+            <p class="text-sm font-medium text-muted-foreground">
+              ສະແດງ {{ filteredCourses.length }} ຄອສ
+            </p>
 
-            <label class="interactive-motion flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-500 shadow-sm sm:w-auto">
-              <span class="text-lg text-[#294a78]">↕</span>
+            <label class="interactive-motion flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-bold text-muted-foreground shadow-sm">
+              <ArrowUpDown class="h-3.5 w-3.5 text-muted-foreground" />
               <select
-                class="min-w-[180px] bg-transparent text-sm font-black text-slate-950 outline-none"
+                v-model="selectedSort"
+                class="bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer"
               >
-                <option>ຍອດນິຍົມ</option>
-                <option>ໃໝ່ລ່າສຸດ</option>
-                <option>ລາຄາຕ່ຳສຸດ</option>
+                <option value="popular">ຍອດນິຍົມ</option>
+                <option value="latest">ໃໝ່ລ່າສຸດ</option>
+                <option value="price-low">ລາຄາຕ່ຳສຸດ</option>
               </select>
             </label>
           </div>

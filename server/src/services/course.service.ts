@@ -13,6 +13,10 @@ type CourseWithReviews = {
     reviews?: {
         rating: number;
     }[];
+    _count?: {
+        lessons?: number;
+        enrollments?: number;
+    };
 };
 
 const attachReviewStats = <T extends CourseWithReviews>(course: T) => {
@@ -22,12 +26,14 @@ const attachReviewStats = <T extends CourseWithReviews>(course: T) => {
         reviewCount > 0
             ? Number((reviews.reduce((total, review) => total + review.rating, 0) / reviewCount).toFixed(1))
             : 0;
-    const { reviews: _reviews, ...courseData } = course;
+    const { reviews: _reviews, _count, ...courseData } = course;
 
     return {
         ...courseData,
         average_rating: averageRating,
         review_count: reviewCount,
+        lesson_count: _count?.lessons ?? 0,
+        enrollment_count: _count?.enrollments ?? 0,
     };
 };
 
@@ -48,6 +54,12 @@ export const getCoursesService = async () => {
                     rating: true,
                 },
             },
+            _count: {
+                select: {
+                    lessons: true,
+                    enrollments: true,
+                },
+            },
         },
     });
     return courses.map(attachReviewStats);
@@ -66,6 +78,12 @@ export const getMyCoursesService = async (instructor_id: string, userRole: strin
             reviews: {
                 select: {
                     rating: true,
+                },
+            },
+            _count: {
+                select: {
+                    lessons: true,
+                    enrollments: true,
                 },
             },
         },
@@ -90,6 +108,12 @@ export const getCoursesByIdService = async (course_id: string) => {
             reviews: {
                 select: {
                     rating: true,
+                },
+            },
+            _count: {
+                select: {
+                    lessons: true,
+                    enrollments: true,
                 },
             },
         },

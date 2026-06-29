@@ -39,11 +39,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="border-t border-slate-200 bg-[#f8fafc] py-12">
-    <div class="mx-auto max-w-[1700px] px-8 lg:px-20 2xl:px-28">
+  <section class="border-t border-border bg-muted/30 py-12">
+    <div class="mx-auto max-w-[1680px] px-6 sm:px-8 lg:px-16 2xl:px-20">
       <div>
-        <h2 class="text-2xl font-black text-[#294a78]">ໝວດໝູ່ຄອສຮຽນ</h2>
-        <p class="mt-2 text-sm text-slate-500">
+        <h2 class="text-2xl font-black text-primary">ໝວດໝູ່ຄອສຮຽນ</h2>
+        <p class="mt-2 text-sm text-muted-foreground">
           ເລືອກຫົວຂໍ້ທີ່ສົນໃຈ ແລ້ວເລີ່ມຮຽນຈາກຄອສທີ່ເໝາະກັບເປົ້າໝາຍຂອງເຈົ້າ
         </p>
       </div>
@@ -53,20 +53,20 @@ onMounted(() => {
           v-for="category in homeCategories"
           :key="category.category_id"
           :to="{ path: '/courses', query: { category: category.category_id } }"
-          class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#294a78]/20 hover:shadow-md"
+          class="group flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:border-primary/30 hover:shadow-md dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
         >
           <span
-            class="flex h-10 w-10 items-center justify-center rounded-lg text-lg"
+            class="flex h-10 w-10 items-center justify-center rounded-lg text-lg transition-transform duration-300 group-hover:scale-110"
             :class="category.color"
           >
             {{ category.icon }}
           </span>
 
           <span>
-            <span class="block font-bold text-slate-900 group-hover:text-[#294a78]">
+            <span class="block font-bold text-foreground group-hover:text-primary">
               {{ category.name }}
             </span>
-            <span class="mt-1 block text-xs text-slate-500">
+            <span class="mt-1 block text-xs text-muted-foreground">
               {{ category.course_count ?? 0 }} ຄອສ
             </span>
           </span>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import HomeFooter from '../home/HomeFooter.vue'
 import {
   getMyCertificates,
@@ -239,8 +239,41 @@ const loadDashboard = async () => {
   }
 }
 
+const animatedProgress = ref(0)
+
+const animateNumber = (target: number) => {
+  const duration = 1000 // 1 second
+  const start = performance.now()
+  const startValue = animatedProgress.value
+
+  const step = (timestamp: number) => {
+    const elapsed = timestamp - start
+    const progress = Math.min(elapsed / duration, 1)
+    
+    // Easing function (easeOutQuad)
+    const ease = progress * (2 - progress)
+    animatedProgress.value = startValue + (target - startValue) * ease
+
+    if (progress < 1) {
+      window.requestAnimationFrame(step)
+    } else {
+      animatedProgress.value = target
+    }
+  }
+
+  window.requestAnimationFrame(step)
+}
+
+watch(averageProgress, (newVal) => {
+  animateNumber(newVal)
+})
+
 onMounted(() => {
-  loadDashboard()
+  loadDashboard().then(() => {
+    if (averageProgress.value > 0) {
+      animateNumber(averageProgress.value)
+    }
+  })
 })
 </script>
 
@@ -300,10 +333,25 @@ onMounted(() => {
             <p class="mt-2 text-sm font-bold text-slate-500">ຄອສສຳເລັດ</p>
           </article>
 
-          <article class="card-soft p-5">
-            <div class="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-xl">↗</div>
-            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ averageProgress }}%</p>
-            <p class="mt-2 text-sm font-bold text-slate-500">ຄວາມຄືບໜ້າສະເລ່ຍ</p>
+          <article class="card-soft p-5 flex flex-col justify-between h-full bg-card border-border">
+            <div class="flex items-center justify-between">
+              <div class="grid h-10 w-10 place-items-center rounded-xl bg-red-50 dark:bg-red-500/10 text-red-500 text-xl font-bold">↗</div>
+              <p class="text-xs font-bold text-muted-foreground">ຄວາມຄືບໜ້າສະເລ່ຍ</p>
+            </div>
+            
+            <div class="mt-4 flex items-center justify-center">
+              <div class="relative flex items-center justify-center h-24 w-24">
+                <svg class="w-full h-full transform -rotate-90">
+                  <!-- Background circle -->
+                  <circle cx="48" cy="48" r="38" stroke="currentColor" stroke-width="7" class="text-slate-100 dark:text-slate-800" fill="transparent" />
+                  <!-- Progress circle -->
+                  <circle cx="48" cy="48" r="38" stroke="currentColor" stroke-width="7" class="text-red-500 transition-all duration-100 ease-out" fill="transparent"
+                    :stroke-dasharray="2 * Math.PI * 38"
+                    :stroke-dashoffset="2 * Math.PI * 38 * (1 - animatedProgress / 100)" />
+                </svg>
+                <span class="absolute font-number font-black text-xl text-foreground">{{ Math.round(animatedProgress) }}%</span>
+              </div>
+            </div>
           </article>
         </div>
 

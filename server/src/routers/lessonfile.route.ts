@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
     getLessonFiles,
+    getLessonFileContent,
     createLessonFile,
     deleteLessonFile,
 } from "../controllers/lessonFile.controller";
@@ -11,6 +12,7 @@ import { uploadLessonFile } from "../middlewares/upload.middleware";
 const router = Router({ mergeParams: true });
 
 router.get("/lessons/:lessonId/files", auth, getLessonFiles);
+router.get("/lesson-files/:fileId/content", getLessonFileContent);
 
 router.post(
     "/lessons/:lessonId/files",

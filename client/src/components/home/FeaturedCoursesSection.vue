@@ -34,7 +34,7 @@ const fetchFeaturedCourses = async () => {
       getCourses(),
       getMyEnrollments().catch(() => []),
     ])
-    courses.value = data.slice(0, 6)
+    courses.value = data.slice(0, 3)
     enrollments.value = enrollmentData
   } catch (error) {
     console.log(error)
@@ -50,38 +50,52 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="bg-[#f7f7f6] pb-20 pt-20">
+  <section class="bg-muted/10 border-t border-b border-border/80 pb-20 pt-20">
     <div class="mx-auto max-w-[1680px] px-6 sm:px-8 lg:px-16 2xl:px-20">
       <div class="flex items-end justify-between gap-4">
         <div>
-          <h2 class="text-[2rem] font-black leading-tight text-[#0f1f4d]">ຄອສແນະນຳ</h2>
-          <p class="mt-3 text-base font-medium text-slate-500">
-            ຄອສທີ່ກຳລັງນ່າສົນໃຈ ຄັດມາໃຫ້ເລີ່ມຮຽນໄດ້ທັນທີ
+          <h2 class="text-[2rem] font-black leading-tight text-foreground">ຄອສຍອດນິຍົມ</h2>
+          <p class="mt-3 text-base font-medium text-muted-foreground">
+            ຄອສທີ່ຜູ້ຮຽນນິຍົມທີ່ສຸດ
           </p>
         </div>
 
         <RouterLink
           to="/courses"
-          class="interactive-motion hidden h-[50px] items-center gap-3 rounded-xl border border-slate-200 bg-white px-6 text-sm font-bold text-[#294a78] shadow-sm transition hover:border-[#294a78]/35 hover:shadow-md md:inline-flex"
+          class="interactive-motion hidden h-[46px] items-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-bold text-foreground shadow-sm transition hover:bg-muted md:inline-flex cursor-pointer"
         >
-          ເບິ່ງທັງໝົດ <span class="text-lg">→</span>
+          ເບິ່ງທັງໝົດ <span class="text-sm">→</span>
         </RouterLink>
       </div>
 
-      <p v-if="isLoading" class="mt-8 text-slate-500">ກຳລັງໂຫຼດ...</p>
-      <p v-else-if="errorMessage" class="mt-8 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+      <div v-if="isLoading" class="mt-11 grid gap-8 md:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+        <article v-for="index in 3" :key="index" class="loading-panel h-[340px] rounded-2xl">
+          <div class="h-44 bg-slate-100 dark:bg-slate-800"></div>
+          <div class="space-y-4 p-5">
+            <div class="loading-line h-4 w-2/3"></div>
+            <div class="loading-line h-3 w-1/2"></div>
+            <div class="flex gap-2">
+              <div class="loading-line h-3 w-16"></div>
+              <div class="loading-line h-3 w-20"></div>
+              <div class="loading-line h-3 w-14"></div>
+            </div>
+            <div class="loading-line h-5 w-24"></div>
+          </div>
+        </article>
+      </div>
+      <p v-else-if="errorMessage" class="mt-8 rounded-xl bg-red-50/10 border border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
         {{ errorMessage }}
       </p>
 
-      <div v-else class="mt-11 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-        <p v-if="courses.length === 0" class="text-slate-500">ຍັງບໍ່ມີຄອສໃຫ້ສະແດງ</p>
+      <div v-else class="mt-11 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <p v-if="courses.length === 0" class="text-muted-foreground">ຍັງບໍ່ມີຄອສໃຫ້ສະແດງ</p>
 
         <RouterLink
           v-for="(course, index) in courses"
           :key="course.course_id"
           :to="`/courses/${course.course_id}`"
-          class="animate-card-in block"
-          :style="{ animationDelay: `${Math.min(index, 5) * 70}ms` }"
+          class="course-card-link animate-card-in block rounded-2xl"
+          :style="{ animationDelay: `${Math.min(index, 2) * 80}ms` }"
         >
           <CourseCard :course="course" :enrollment-state="getEnrollmentState(course)" />
         </RouterLink>
