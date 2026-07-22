@@ -1,3 +1,4 @@
+import type { StringifyOptions } from 'querystring'
 import { http } from './http'
 
 export type LoginPayload = {
@@ -7,7 +8,7 @@ export type LoginPayload = {
 
 export type RegisterPayload = {
   email: string
-  password: string
+  password: StringifyOptions
   first_name: string
   last_name: string
 }

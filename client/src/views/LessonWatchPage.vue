@@ -7,6 +7,7 @@ import { API_URL, resolveAssetUrl } from '../api/config'
 import { getCourseById } from '../api/courseApi'
 import { getMyEnrollments } from '../api/enrollmentApi'
 import { getLessonById, getLessonsByCourseId } from '../api/lessonApi'
+import { getMyCertificates, issueCertificate } from '../api/certificateApi'
 import { getProgress, updateProgress } from '../api/progressApi'
 import {
   getQuizByLessonId,
@@ -89,6 +90,47 @@ const lessonHasQuiz = computed(() => {
 const canMarkCurrentLessonComplete = computed(() => {
   return !lessonHasQuiz.value || isQuizPassed.value
 })
+
+const hasClaimedCertificate = ref(false)
+const isClaimingCertificate = ref(false)
+
+const isLastLesson = computed(() => {
+  if (lesson.value?.is_last_lesson) return true
+  const hasConfiguredLastLesson = lessons.value.some((l) => l.is_last_lesson)
+  if (hasConfiguredLastLesson) {
+    return Boolean(lesson.value?.is_last_lesson)
+  }
+  return lessons.value.length > 0 && currentLessonIndex.value === lessons.value.length - 1
+})
+
+const isCourseFinished = computed(() => {
+  if (lessons.value.length === 0) return false
+  const configuredLastLesson = lessons.value.find((l) => l.is_last_lesson)
+  if (configuredLastLesson) {
+    return isLessonCompleted(configuredLastLesson.lesson_id)
+  }
+  return completedLessonCount.value === lessons.value.length
+})
+
+const claimCertificate = async () => {
+  if (isClaimingCertificate.value) return
+
+  try {
+    isClaimingCertificate.value = true
+    await issueCertificate(courseId.value)
+    hasClaimedCertificate.value = true
+    confetti({
+      particleCount: 150,
+      spread: 80,
+      origin: { y: 0.6 },
+    })
+  } catch (error) {
+    console.log(error)
+    alert('ຍັງອອກໃບປະກາດບໍ່ໄດ້ ກວດວ່າຮຽນຄົບ ແລະ ຜ່ານ quiz ແລ້ວຫຼືຍັງ')
+  } finally {
+    isClaimingCertificate.value = false
+  }
+}
 
 const currentQuizQuestion = computed(() => {
   return quiz.value?.questions[currentQuizQuestionIndex.value] || null
@@ -530,6 +572,14 @@ const loadLesson = async () => {
       }
     } catch (error) {
       console.log(error)
+    }
+
+    try {
+      hasClaimedCertificate.value = false
+      const certificateList = await getMyCertificates()
+      hasClaimedCertificate.value = certificateList.some((c) => c.course_id === courseId.value)
+    } catch (error) {
+      console.log('Failed to fetch certificates:', error)
     }
 
     try {
@@ -1103,6 +1153,12 @@ const spawnSparkles = (e: MouseEvent) => {
                   >
                     ✓ ສຳເລັດ
                   </span>
+                  <span
+                    v-if="isLastLesson"
+                    class="rounded-full bg-red-50 border border-red-100 px-3 py-1 text-xs font-black text-red-700"
+                  >
+                    🏁 ບົດຮຽນສຸດທ້າຍ
+                  </span>
                 </div>
 
                 <h1 class="mt-3 text-2xl font-black text-slate-950">{{ lesson.title }}</h1>
@@ -1128,7 +1184,7 @@ const spawnSparkles = (e: MouseEvent) => {
                   download
                   class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-[#142b63] transition hover:border-[#142b63]"
                 >
-                  ດາວໂຫຼດ
+                  ดາວໂຫຼດ
                 </a>
                 <button
                   type="button"
@@ -1137,6 +1193,42 @@ const spawnSparkles = (e: MouseEvent) => {
                   ແຊຣ໌
                 </button>
               </div>
+            </div>
+
+            <!-- Congratulations Banner when Course is Completed -->
+            <div
+              v-if="isCourseFinished"
+              class="mt-6 p-5 rounded-2xl border border-emerald-100 bg-emerald-50/60 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4"
+            >
+              <div class="flex items-center gap-4">
+                <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-2xl">
+                  🏅
+                </div>
+                <div class="text-left">
+                  <h3 class="text-base font-black text-emerald-950">ຍິນດີດ້ວຍ! ທ່ານຮຽນຈົບຄອສນີ້ແລ້ວ</h3>
+                  <p class="mt-1 text-xs font-semibold text-emerald-700">
+                    ທ່ານໄດ້ຮຽນຈົບບົດຮຽນທັງໝົດ ແລະ ພ້ອມທີ່ຈະຮັບໃບຢືນຢັນການຮຽນຈົບແລ້ວ
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                v-if="!hasClaimedCertificate"
+                type="button"
+                :disabled="isClaimingCertificate"
+                class="shrink-0 rounded-xl bg-[#142b63] px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#0e214d] disabled:cursor-not-allowed disabled:bg-slate-400"
+                @click="claimCertificate"
+              >
+                {{ isClaimingCertificate ? 'ກຳລັງອອກໃບປະກາດ...' : 'ຮັບໃບປະກາດ' }}
+              </button>
+              
+              <RouterLink
+                v-else
+                to="/dashboard"
+                class="shrink-0 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-emerald-700"
+              >
+                ເບິ່ງໃບປະກາດຂອງທ່ານ
+              </RouterLink>
             </div>
 
             <div class="mt-8">
@@ -1175,7 +1267,7 @@ const spawnSparkles = (e: MouseEvent) => {
 
           <div class="max-h-[calc(100vh-201px)] overflow-y-auto p-4">
             <RouterLink
-              v-for="item in lessons"
+              v-for="(item, idx) in lessons"
               :key="item.lesson_id"
               :to="`/courses/${courseId}/learn/${item.lesson_id}`"
               class="mb-3 flex gap-3 rounded-2xl border px-4 py-4 transition"
@@ -1219,6 +1311,12 @@ const spawnSparkles = (e: MouseEvent) => {
                   {{ getLessonTypeLabel(item) }}
                   <span v-if="item.files?.[0]?.duration_seconds">
                     · {{ formatDuration(item.files[0].duration_seconds) }}
+                  </span>
+                  <span
+                    v-if="item.is_last_lesson || (lessons.some((l) => l.is_last_lesson) ? false : idx === lessons.length - 1)"
+                    class="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-black text-red-700"
+                  >
+                    ບົດຮຽນສຸດທ້າຍ
                   </span>
                 </p>
               </div>

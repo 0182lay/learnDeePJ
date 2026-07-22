@@ -112,15 +112,27 @@ const formatFileSize = (size: number | null) => {
         ></textarea>
       </label>
 
-      <label class="flex items-center gap-3 text-sm font-bold text-slate-600 md:col-span-2">
-        <input
-          :checked="props.lesson.isFreePreview"
-          type="checkbox"
-          class="h-4 w-4"
-          @change="updateLesson({ isFreePreview: ($event.target as HTMLInputElement).checked })"
-        />
-        ເປີດໃຫ້ເບິ່ງຟຣີ
-      </label>
+      <div class="flex flex-col gap-3 md:col-span-2">
+        <label class="flex items-center gap-3 text-sm font-bold text-slate-600">
+          <input
+            :checked="props.lesson.isFreePreview"
+            type="checkbox"
+            class="h-4 w-4"
+            @change="updateLesson({ isFreePreview: ($event.target as HTMLInputElement).checked })"
+          />
+          ເປີດໃຫ້ເບິ່ງຟຣີ
+        </label>
+
+        <label class="flex items-center gap-3 text-sm font-bold text-slate-600">
+          <input
+            :checked="props.lesson.isLastLesson"
+            type="checkbox"
+            class="h-4 w-4"
+            @change="updateLesson({ isLastLesson: ($event.target as HTMLInputElement).checked })"
+          />
+          ແມ່ນບົດຮຽນສຸດທ້າຍ (ຮັບໃບປະກາດ)
+        </label>
+      </div>
     </div>
 
     <div v-if="lesson.type === 'video'" class="border-t border-slate-200 p-6">
@@ -144,7 +156,7 @@ const formatFileSize = (size: number | null) => {
             ▶
           </div>
           <p class="mt-3 font-bold text-slate-700">ອັບໂຫຼດວິດີໂອບົດຮຽນ</p>
-          <p class="mt-1 text-xs">MP4, WebM, MOV • ບໍ່ເກີນ 2 ນາທີ</p>
+          <p class="mt-1 text-xs">MP4, WebM, MOV • ບໍ່ເກີນ 20 ນາທີ</p>
         </div>
 
         <input type="file" accept="video/*" class="hidden" @change="$emit('videoChange', $event)" />

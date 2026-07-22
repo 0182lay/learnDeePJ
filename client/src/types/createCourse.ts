@@ -29,6 +29,7 @@ export type DraftLesson = {
   durationSeconds: number
   description: string
   isFreePreview: boolean
+  isLastLesson: boolean
   videoFile: File | null
   videoPreviewUrl: string
   videoName: string

@@ -13,6 +13,7 @@ type CreateLessonPayload = {
   description?: string
   order_index?: number
   is_free_preview?: boolean
+  is_last_lesson?: boolean
 }
 
 type UpdateLessonPayload = Partial<CreateLessonPayload>
@@ -71,7 +72,7 @@ export const uploadLessonFile = async (
     headers: {
       'Content-Type': 'multipart/form-data',
     },
-    timeout: 5 * 60 * 1000,
+    timeout: 25 * 60 * 1000,
   })
 
   return res.data.data

@@ -79,9 +79,10 @@ export const issueCertificateService = async (
             .map((progress) => progress.lesson_id),
     );
 
-    const hasCompletedAllLessons =
-        lessons.length > 0 &&
-        lessons.every((lesson) => completedLessonIds.has(lesson.lesson_id));
+    const lastLesson = lessons.find((l) => (l as any).is_last_lesson);
+    const hasCompletedAllLessons = lastLesson
+        ? completedLessonIds.has(lastLesson.lesson_id)
+        : (lessons.length > 0 && lessons.every((lesson) => completedLessonIds.has(lesson.lesson_id)));
 
     if (!hasCompletedAllLessons) {
         throw new Error("COURSE_NOT_COMPLETE");

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from 'axios'
 import { computed, onMounted, ref } from 'vue'
 import {
   createCategory,
@@ -27,11 +28,11 @@ type AdminTab =
   | 'reports'
 
 type ReportType =
-  | 'summary'
-  | 'monthlyRevenue'
+  | 'studentCount'
+  | 'instructorCount'
+  | 'courseCount'
+  | 'paymentList'
   | 'popularCourses'
-  | 'instructorRevenue'
-  | 'learnerJourney'
 
 const authStore = useAuthStore()
 
@@ -46,7 +47,28 @@ const successMessage = ref('')
 const updatingId = ref('')
 const categoryForm = ref<CategoryPayload>({ name: '', description: '', icon: '📚' })
 const editingCategoryId = ref('')
-const selectedReportType = ref<ReportType>('summary')
+const selectedReportType = ref<ReportType>('studentCount')
+
+const confirmModal = ref({
+  show: false,
+  title: '',
+  message: '',
+  onConfirm: () => {},
+})
+
+const triggerConfirm = (title: string, message: string, onConfirm: () => void) => {
+  confirmModal.value = {
+    show: true,
+    title,
+    message,
+    onConfirm,
+  }
+}
+
+const handleModalConfirm = () => {
+  confirmModal.value.onConfirm()
+  confirmModal.value.show = false
+}
 
 const displayName = computed(() => {
   const profile = authStore.user?.profile
@@ -91,7 +113,10 @@ const totalRevenue = computed(() => {
 })
 
 const selectedReportLabel = computed(() => {
-  return reportTypes.find((report) => report.key === selectedReportType.value)?.label || 'ສະຫຼຸບລວມ'
+  return (
+    reportTypes.find((report) => report.key === selectedReportType.value)?.label ||
+    'ລາຍການຈຳນວນຜູ້ຮຽນ'
+  )
 })
 
 const publishedCoursesCount = computed(() => {
@@ -99,7 +124,75 @@ const publishedCoursesCount = computed(() => {
 })
 
 const reportRows = computed(() => {
-  if (selectedReportType.value === 'monthlyRevenue') {
+  if (selectedReportType.value === 'instructorCount') {
+    return [
+      {
+        metric: 'ຜູ້ສອນທັງໝົດ',
+        current: instructors.value.length,
+        growth: '+8.2%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ຜູ້ສອນລໍຖ້າ',
+        current: pendingInstructors.value.length,
+        growth: '-15%',
+        status: 'ຕິດຕາມ',
+        tone: 'negative',
+      },
+      {
+        metric: 'ຜູ້ສອນທີ່ອະນຸມັດແລ້ວ',
+        current: instructors.value.length - pendingInstructors.value.length,
+        growth: '+10.1%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ຄອສຕໍ່ຜູ້ສອນ',
+        current: instructors.value.length
+          ? Math.round(courses.value.length / instructors.value.length)
+          : 0,
+        growth: '+4.1%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+    ]
+  }
+
+  if (selectedReportType.value === 'courseCount') {
+    return [
+      {
+        metric: 'ຄອສຮຽນທັງໝົດ',
+        current: courses.value.length,
+        growth: '+8.2%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ຄອສຮຽນທີ່ເຜີຍແຜ່',
+        current: publishedCoursesCount.value,
+        growth: '+6.4%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+      {
+        metric: 'ຄອສຮຽນຮ່າງ',
+        current: courses.value.length - publishedCoursesCount.value,
+        growth: '+2.1%',
+        status: 'ກວດ',
+        tone: 'neutral',
+      },
+      {
+        metric: 'ໝວດໝູ່ຄອສຮຽນ',
+        current: categories.value.length,
+        growth: '+4.1%',
+        status: 'ດີ',
+        tone: 'positive',
+      },
+    ]
+  }
+
+  if (selectedReportType.value === 'paymentList') {
     return [
       {
         metric: 'ລາຍໄດ້ລວມ',
@@ -144,116 +237,34 @@ const reportRows = computed(() => {
     }))
   }
 
-  if (selectedReportType.value === 'instructorRevenue') {
-    return [
-      {
-        metric: 'ຜູ້ສອນທັງໝົດ',
-        current: instructors.value.length,
-        growth: '+8.2%',
-        status: 'ດີ',
-        tone: 'positive',
-      },
-      {
-        metric: 'ຜູ້ສອນລໍຖ້າ',
-        current: pendingInstructors.value.length,
-        growth: '-15%',
-        status: 'ຕິດຕາມ',
-        tone: 'negative',
-      },
-      {
-        metric: 'ລາຍໄດ້ຜູ້ສອນ',
-        current: formatShortMoney(Math.round(totalRevenue.value * 0.7)),
-        growth: '+18.5%',
-        status: 'ດີ',
-        tone: 'positive',
-      },
-      {
-        metric: 'ຄອສຕໍ່ຜູ້ສອນ',
-        current: instructors.value.length
-          ? Math.round(courses.value.length / instructors.value.length)
-          : 0,
-        growth: '+4.1%',
-        status: 'ດີ',
-        tone: 'positive',
-      },
-    ]
-  }
-
-  if (selectedReportType.value === 'learnerJourney') {
-    return [
-      {
-        metric: 'ຜູ້ໃຊ້ນັກຮຽນ',
-        current: studentsCount.value,
-        growth: '+12.5%',
-        status: 'ດີ',
-        tone: 'positive',
-      },
-      {
-        metric: 'ນັກຮຽນໃໝ່',
-        current: Math.max(0, studentsCount.value - 3),
-        growth: '+15.2%',
-        status: 'ດີ',
-        tone: 'positive',
-      },
-      {
-        metric: 'ອັດຕາການຈົບສະເລ່ຍ',
-        current: '73%',
-        growth: '+3.5%',
-        status: 'ດີ',
-        tone: 'positive',
-      },
-      {
-        metric: 'ບົດຮຽນທີ່ເປີດເບິ່ງ',
-        current: courses.value.length * 6,
-        growth: '+9.8%',
-        status: 'ດີ',
-        tone: 'positive',
-      },
-    ]
-  }
-
   return [
     {
-      metric: 'ຜູ້ໃຊ້ທັງໝົດ',
+      metric: 'ຜູ້ຮຽນທັງໝົດ',
+      current: studentsCount.value,
+      growth: '+12.5%',
+      status: 'ດີ',
+      tone: 'positive',
+    },
+    {
+      metric: 'ນັກຮຽນໃໝ່',
+      current: Math.max(0, studentsCount.value - 3),
+      growth: '+15.2%',
+      status: 'ດີ',
+      tone: 'positive',
+    },
+    {
+      metric: 'ຜູ້ໃຊ້ທີ່ເປີດໃຊ້ງານ',
       current: activeUsersCount.value,
       growth: '+12.5%',
       status: 'ດີ',
       tone: 'positive',
     },
     {
-      metric: 'ຄອສທັງໝົດ',
-      current: courses.value.length,
-      growth: '+8.2%',
-      status: 'ດີ',
-      tone: 'positive',
-    },
-    {
-      metric: 'ລາຍໄດ້ລວມ 6 ເດືອນ',
-      current: formatShortMoney(totalRevenue.value),
-      growth: '+28.4%',
-      status: 'ດີຫຼາຍ',
-      tone: 'positive',
-    },
-    {
-      metric: 'ນັກຮຽນໃໝ່',
-      current: studentsCount.value,
-      growth: '+15.2%',
-      status: 'ດີ',
-      tone: 'positive',
-    },
-    {
-      metric: 'ອັດຕາຮຽນຈົບສະເລ່ຍ',
+      metric: 'ອັດຕາການຈົບສະເລ່ຍ',
       current: '73%',
       growth: '+3.5%',
       status: 'ດີ',
       tone: 'positive',
-    },
-    {
-      metric: 'ຜູ້ສອນລໍຖ້າ',
-      current: pendingInstructors.value.length,
-      growth: '-15%',
-      status: 'ຕິດຕາມ',
-      tone: 'negative',
     },
   ]
 })
@@ -287,11 +298,11 @@ const tabs: { key: AdminTab; label: string }[] = [
 ]
 
 const reportTypes: { key: ReportType; label: string }[] = [
-  { key: 'summary', label: 'ສະຫຼຸບລວມ' },
-  { key: 'monthlyRevenue', label: 'ລາຍໄດ້ລາຍເດືອນ' },
-  { key: 'popularCourses', label: 'ຄອສຍອດນິຍົມ' },
-  { key: 'instructorRevenue', label: 'ລາຍໄດ້ຜູ້ສອນ' },
-  { key: 'learnerJourney', label: 'ເສັ້ນທາງນັກຮຽນ' },
+  { key: 'studentCount', label: 'ລາຍການຈຳນວນຜູ້ຮຽນ' },
+  { key: 'instructorCount', label: 'ລາຍການຈຳນວນຜູ້ສອນ' },
+  { key: 'courseCount', label: 'ລາຍການຈຳນວນຄອສຮຽນ' },
+  { key: 'paymentList', label: 'ລາຍການການຊຳລະ' },
+  { key: 'popularCourses', label: 'ລາຍການຄອສຮຽນທີ່ໄດ້ຮັບການນິຍົມ' },
 ]
 
 const statusLabel: Record<PaymentStatus, string> = {
@@ -553,43 +564,55 @@ const handleSaveCategory = async () => {
     return
   }
 
-  try {
-    updatingId.value = editingCategoryId.value || 'category-create'
-    successMessage.value = ''
-    errorMessage.value = ''
+  const isEdit = Boolean(editingCategoryId.value)
+  const confirmTitle = isEdit ? 'ຢືນຢັນການແກ້ໄຂ' : 'ຢືນຢັນການສ້າງ'
+  const confirmMsg = isEdit
+    ? 'ຢືນຢັນການແກ້ໄຂໝວດໝູ່ຄອສຮຽນນີ້ ຫຼື ບໍ່?'
+    : 'ຢືນຢັນການສ້າງໝວດໝູ່ຄອສຮຽນນີ້ ຫຼື ບໍ່?'
 
-    if (editingCategoryId.value) {
-      const updated = await updateCategory(editingCategoryId.value, {
-        name,
-        description: categoryForm.value.description?.trim(),
-        icon: categoryForm.value.icon?.trim() || '📚',
-      })
-      const index = categories.value.findIndex((category) => {
-        return category.category_id === updated.category_id
-      })
+  triggerConfirm(confirmTitle, confirmMsg, async () => {
+    try {
+      updatingId.value = editingCategoryId.value || 'category-create'
+      successMessage.value = ''
+      errorMessage.value = ''
 
-      if (index >= 0) {
-        categories.value[index] = updated
+      if (editingCategoryId.value) {
+        const updated = await updateCategory(editingCategoryId.value, {
+          name,
+          description: categoryForm.value.description?.trim(),
+          icon: categoryForm.value.icon?.trim() || '📚',
+        })
+        const index = categories.value.findIndex((category) => {
+          return category.category_id === updated.category_id
+        })
+
+        if (index >= 0) {
+          categories.value[index] = updated
+        }
+
+        successMessage.value = 'Category updated.'
+      } else {
+        const created = await createCategory({
+          name,
+          description: categoryForm.value.description?.trim(),
+          icon: categoryForm.value.icon?.trim() || '📚',
+        })
+        categories.value.unshift(created)
+        successMessage.value = 'Category created.'
       }
 
-      successMessage.value = 'Category updated.'
-    } else {
-      const created = await createCategory({
-        name,
-        description: categoryForm.value.description?.trim(),
-        icon: categoryForm.value.icon?.trim() || '📚',
-      })
-      categories.value.unshift(created)
-      successMessage.value = 'Category created.'
+      resetCategoryForm()
+    } catch (error) {
+      console.log(error)
+      if (axios.isAxiosError<{ message: string }>(error)) {
+        errorMessage.value = error.response?.data?.message || 'Save category failed.'
+      } else {
+        errorMessage.value = 'Save category failed. Check duplicate name or server error.'
+      }
+    } finally {
+      updatingId.value = ''
     }
-
-    resetCategoryForm()
-  } catch (error) {
-    console.log(error)
-    errorMessage.value = 'Save category failed. Check duplicate name or server error.'
-  } finally {
-    updatingId.value = ''
-  }
+  })
 }
 
 const handleDeleteCategory = async (category: Category) => {
@@ -1030,7 +1053,7 @@ onMounted(() => {
             <div class="flex gap-3">
               <button
                 type="button"
-                :disabled="updatingId === 'category-create' || updatingId === editingCategoryId"
+                :disabled="updatingId === 'category-create' || (editingCategoryId !== '' && updatingId === editingCategoryId)"
                 class="rounded-xl bg-[#142b63] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0e214d] disabled:bg-slate-400"
                 @click="handleSaveCategory"
               >
@@ -1367,6 +1390,55 @@ onMounted(() => {
       </section>
     </template>
   </section>
+
+  <!-- Beautiful Custom Confirmation Modal -->
+  <Transition
+    enter-active-class="transition duration-200 ease-out"
+    enter-from-class="opacity-0 scale-95"
+    enter-to-class="opacity-100 scale-100"
+    leave-active-class="transition duration-150 ease-in"
+    leave-from-class="opacity-100 scale-100"
+    leave-to-class="opacity-0 scale-95"
+  >
+    <div
+      v-if="confirmModal.show"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0f172a]/45 backdrop-blur-sm"
+    >
+      <div
+        class="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 shadow-2xl transition-all border border-slate-100"
+      >
+        <div class="flex items-center gap-3">
+          <div class="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-[#142b63] text-xl">
+            ❓
+          </div>
+          <h3 class="text-lg font-black text-[#0f1f4d]">
+            {{ confirmModal.title }}
+          </h3>
+        </div>
+        
+        <p class="mt-4 text-sm font-medium text-slate-500 leading-relaxed">
+          {{ confirmModal.message }}
+        </p>
+        
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            @click="confirmModal.show = false"
+          >
+            ຍົກເລີກ
+          </button>
+          <button
+            type="button"
+            class="rounded-xl bg-[#142b63] px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#0e214d]"
+            @click="handleModalConfirm"
+          >
+            ຢືນຢັນ
+          </button>
+        </div>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>

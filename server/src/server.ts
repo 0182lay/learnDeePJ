@@ -40,11 +40,15 @@ const loadRoutes = async () => {
         console.log(`✅ loaded: ${file}`);
     }
 
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
         console.log(`==============================`);
         console.log(`server running on port ${port}`);
         console.log(`==============================`);
     });
+
+    server.timeout = 25 * 60 * 1000;
+    server.keepAliveTimeout = 25 * 60 * 1000;
+    server.headersTimeout = 25 * 60 * 1000;
 };
 
 loadRoutes();

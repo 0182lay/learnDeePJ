@@ -79,7 +79,7 @@ export const createLesson = async (req: Request, res: Response) => {
         const courseId = req.params.courseId as string;
         const instructor_id = (req as any).user?.user?.id;
         const userRole = (req as any).user?.user?.role;
-        const { title, lesson_type, content, description, order_index, is_free_preview } =
+        const { title, lesson_type, content, description, order_index, is_free_preview, is_last_lesson } =
             req.body;
         const lesson = await createLessonService(courseId, instructor_id, userRole, {
             title,
@@ -88,6 +88,7 @@ export const createLesson = async (req: Request, res: Response) => {
             description,
             order_index,
             is_free_preview,
+            is_last_lesson,
         });
         return res
             .status(201)
@@ -110,7 +111,7 @@ export const updateLesson = async (req: Request, res: Response) => {
         const lessonId = req.params.lessonId as string;
         const instructor_id = (req as any).user?.user?.id;
         const userRole = (req as any).user?.user?.role;
-        const { title, lesson_type, content, description, order_index, is_free_preview } =
+        const { title, lesson_type, content, description, order_index, is_free_preview, is_last_lesson } =
             req.body;
 
         const lesson = await updateLessonService(
@@ -118,7 +119,7 @@ export const updateLesson = async (req: Request, res: Response) => {
             lessonId,
             instructor_id,
             userRole,
-            { title, lesson_type, content, description, order_index, is_free_preview },
+            { title, lesson_type, content, description, order_index, is_free_preview, is_last_lesson },
         );
         return res.status(200).json({ message: "ອັບເດດ Lesson ສຳເລັດ", data: lesson });
     } catch (error: any) {

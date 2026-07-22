@@ -95,6 +95,7 @@ const createEmptyLesson = (id: number): DraftLesson => ({
   durationSeconds: 0,
   description: '',
   isFreePreview: false,
+  isLastLesson: false,
   videoFile: null,
   videoPreviewUrl: '',
   videoName: '',
@@ -128,6 +129,7 @@ const mapLessonToDraft = (lesson: Lesson, index: number): DraftLesson => {
     durationSeconds: firstFile?.duration_seconds || 0,
     description: lesson.description || '',
     isFreePreview: lesson.is_free_preview,
+    isLastLesson: lesson.is_last_lesson || false,
     videoFile: null,
     videoPreviewUrl: '',
     videoName: firstFile?.file_type === 'video' ? firstFile.original_name : '',
@@ -349,6 +351,7 @@ const saveLessons = async () => {
       description: lesson.description || undefined,
       order_index: index + 1,
       is_free_preview: lesson.isFreePreview,
+      is_last_lesson: lesson.isLastLesson,
     }
 
     if (lesson.lessonId) {
@@ -507,8 +510,8 @@ const handleLessonVideoChange = async (event: Event) => {
 
   const duration = await readVideoDuration(file)
 
-  if (duration > 120) {
-    errorMessage.value = 'ວິດີໂອຕ້ອງບໍ່ເກີນ 2 ນາທີ'
+  if (duration > 1200) {
+    errorMessage.value = 'ວິດີໂອຕ້ອງບໍ່ເກີນ 20 ນາທີ'
     input.value = ''
     return
   }

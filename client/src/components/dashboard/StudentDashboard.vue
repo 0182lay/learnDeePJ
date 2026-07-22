@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toPng } from 'html-to-image'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import HomeFooter from '../home/HomeFooter.vue'
 import {
@@ -31,6 +32,7 @@ const errorMessage = ref('')
 const certificateMessage = ref('')
 const issuingCourseId = ref('')
 const printingCertificateId = ref('')
+const downloadingCertificateId = ref('')
 
 const displayName = computed(() => {
   const profile = authStore.user?.profile
@@ -144,11 +146,15 @@ const getCertificateInstructorName = (certificate: Certificate) => {
 
 const getCourseProgress = (enrollment: MyEnrollment) => {
   const progressList = progressByEnrollment.value[enrollment.enrollment_id] || []
-  const total = progressList.length
+  const total = enrollment.course.lesson_count ?? progressList.length
   const completed = progressList.filter((progress) => progress.is_completed).length
-  const percent = total > 0 ? Math.round((completed / total) * 100) : 0
+  const percent = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
 
   return { total, completed, percent }
+}
+
+const isCourseComplete = (enrollment: MyEnrollment) => {
+  return getCourseProgress(enrollment).percent === 100
 }
 
 const getCourseCertificate = (courseId: string) => {
@@ -174,6 +180,7 @@ const getPaymentMethodLabel = (method: string | null) => {
 
 const handleIssueCertificate = async (enrollment: MyEnrollment) => {
   if (issuingCourseId.value) return
+  if (!isCourseComplete(enrollment)) return
 
   try {
     issuingCourseId.value = enrollment.course_id
@@ -206,6 +213,42 @@ const handlePrintCertificate = async (certificateId: string) => {
   window.setTimeout(() => {
     printingCertificateId.value = ''
   }, 300)
+}
+
+const handleDownloadCertificate = async (certificateId: string, courseTitle: string) => {
+  if (downloadingCertificateId.value) return
+
+  downloadingCertificateId.value = certificateId
+  await nextTick()
+
+  const el = document.getElementById(`certificate-card-${certificateId}`)
+  if (!el) {
+    downloadingCertificateId.value = ''
+    return
+  }
+
+  try {
+    const dataUrl = await toPng(el, {
+      backgroundColor: '#fffdf8',
+      pixelRatio: 2,
+      filter: (node) => {
+        if (node instanceof HTMLElement && node.classList.contains('certificate-no-print')) {
+          return false
+        }
+        return true
+      },
+    })
+
+    const link = document.createElement('a')
+    link.download = `Certificate-${courseTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+    link.href = dataUrl
+    link.click()
+  } catch (error) {
+    console.error('Download certificate error:', error)
+    alert('ດາວໂຫຼດຮູບພາບບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່ອີກຄັ້ງ')
+  } finally {
+    downloadingCertificateId.value = ''
+  }
 }
 
 const loadDashboard = async () => {
@@ -413,13 +456,15 @@ onMounted(() => {
             </RouterLink>
 
             <button
-              v-if="
-                getCourseProgress(enrollment).percent === 100 &&
-                !getCourseCertificate(enrollment.course_id)
-              "
+              v-if="!getCourseCertificate(enrollment.course_id)"
               type="button"
-              :disabled="issuingCourseId === enrollment.course_id"
-              class="inline-flex shrink-0 items-center justify-center rounded-xl border border-[#f5a400]/40 bg-[#f5a400]/10 px-5 py-3 text-sm font-black text-[#9a6500] transition hover:bg-[#f5a400]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              :disabled="!isCourseComplete(enrollment) || issuingCourseId === enrollment.course_id"
+              class="inline-flex shrink-0 items-center justify-center rounded-xl border px-5 py-3 text-sm font-black transition"
+              :class="
+                isCourseComplete(enrollment)
+                  ? 'border-[#f5a400]/40 bg-[#f5a400]/10 text-[#9a6500] hover:bg-[#f5a400]/20'
+                  : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-70'
+              "
               @click="handleIssueCertificate(enrollment)"
             >
               {{ issuingCourseId === enrollment.course_id ? 'ກຳລັງອອກ...' : 'ຮັບໃບປະກາດ' }}
@@ -505,6 +550,7 @@ onMounted(() => {
             <article
               v-for="certificate in certificates"
               :key="certificate.certificate_id"
+              :id="`certificate-card-${certificate.certificate_id}`"
               class="certificate-print-card relative overflow-hidden rounded-[1.75rem] border border-[#f5a400]/40 bg-[#fffdf8] p-2 shadow-[0_22px_60px_rgba(15,31,77,0.10)]"
               :class="{ 'is-printing': printingCertificateId === certificate.certificate_id }"
             >
@@ -574,13 +620,23 @@ onMounted(() => {
                     Verified by LearnDee
                   </p>
 
-                  <button
-                    type="button"
-                    class="certificate-no-print rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
-                    @click="handlePrintCertificate(certificate.certificate_id)"
-                  >
-                    Print certificate
-                  </button>
+                  <div class="flex gap-2 certificate-no-print">
+                    <button
+                      type="button"
+                      :disabled="downloadingCertificateId === certificate.certificate_id"
+                      class="rounded-xl bg-[#142b63] px-4 py-2 text-sm font-black text-white transition hover:bg-[#0e214d] disabled:cursor-not-allowed disabled:bg-slate-400"
+                      @click="handleDownloadCertificate(certificate.certificate_id, certificate.course.title)"
+                    >
+                      {{ downloadingCertificateId === certificate.certificate_id ? 'ກຳລັງດາວໂຫຼດ...' : 'ດາວໂຫຼດຮູບພາບ' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-[#142b63] transition hover:border-[#142b63]"
+                      @click="handlePrintCertificate(certificate.certificate_id)"
+                    >
+                      Print certificate
+                    </button>
+                  </div>
                 </div>
               </div>
             </article>

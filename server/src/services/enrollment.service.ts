@@ -12,12 +12,28 @@ export const getEnrollmentsService = async (student_id: string) => {
                     instructor: {
                         include: { profile: true },
                     },
+                    _count: {
+                        select: {
+                            lessons: true,
+                        },
+                    },
                 },
             },
         },
         orderBy: { enrolled_at: "desc" },
     });
-    return enrollments;
+
+    return enrollments.map(({ course, ...enrollment }) => {
+        const { _count, ...courseData } = course;
+
+        return {
+            ...enrollment,
+            course: {
+                ...courseData,
+                lesson_count: _count.lessons,
+            },
+        };
+    });
 };
 
 export const enrollCourseService = async (

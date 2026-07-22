@@ -119,13 +119,13 @@ export const createLessonFile = async (req: Request, res: Response) => {
         const fileType = req.body.file_type || getFileTypeFromUpload(uploadedFile);
         const durationSeconds = duration_seconds ? Number(duration_seconds) : undefined;
 
-        if (fileType === FileType.video && durationSeconds && durationSeconds > 120) {
+        if (fileType === FileType.video && durationSeconds && durationSeconds > 1200) {
             if (uploadedFile) {
                 fs.unlink(uploadedFile.path, () => {});
             }
 
             return res.status(400).json({
-                message: "Video must be 2 minutes or less",
+                message: "Video must be 20 minutes or less",
             });
         }
 

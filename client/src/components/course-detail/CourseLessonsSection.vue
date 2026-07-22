@@ -85,7 +85,10 @@ const getLessonAccessText = (lesson: Lesson, canAccessLessons: boolean) => {
           >
             <Check class="h-4 w-4" />
           </span>
-          <Play v-else-if="canAccessLessons" class="mx-auto h-4 w-4 text-slate-400" />
+          <Play
+            v-else-if="canAccessLessons || lesson.is_free_preview"
+            class="mx-auto h-4 w-4 text-slate-400"
+          />
           <Lock v-else class="mx-auto h-4 w-4 text-slate-400" />
         </div>
 
@@ -114,19 +117,20 @@ const getLessonAccessText = (lesson: Lesson, canAccessLessons: boolean) => {
         </div>
 
         <button
+          v-if="canAccessLessons"
           type="button"
-          :disabled="!canAccessLessons || isLessonCompleted(lesson.lesson_id)"
+          :disabled="isLessonCompleted(lesson.lesson_id)"
           class="hidden rounded-full border border-slate-200 px-4 py-2 text-xs font-bold text-primary transition hover:border-primary disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:block"
           @click="$emit('completeLesson', lesson.lesson_id)"
         >
-          {{
-            isLessonCompleted(lesson.lesson_id)
-              ? 'ຮຽນຈົບແລ້ວ'
-              : canAccessLessons
-                ? 'ກຳນົດວ່າຮຽນຈົບ'
-                : 'ລັອກ'
-          }}
+          {{ isLessonCompleted(lesson.lesson_id) ? 'ຮຽນຈົບແລ້ວ' : 'ກຳນົດວ່າຮຽນຈົບ' }}
         </button>
+        <span
+          v-else-if="lesson.is_free_preview"
+          class="hidden rounded-full border border-secondary/30 bg-secondary/10 px-4 py-2 text-xs font-bold text-secondary sm:block"
+        >
+          ຮຽນຟຣີ
+        </span>
       </article>
     </details>
   </section>
