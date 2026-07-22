@@ -51,6 +51,7 @@ const createEmptyLesson = (id: number): DraftLesson => {
     durationSeconds: 0,
     description: '',
     isFreePreview: false,
+    isLastLesson: false,
     videoFile: null,
     videoPreviewUrl: '',
     videoName: '',
@@ -183,6 +184,7 @@ const submitCourse = async (isPublished = false) => {
         description: lesson.description || undefined,
         order_index: index + 1,
         is_free_preview: lesson.isFreePreview,
+        is_last_lesson: lesson.isLastLesson,
       })
 
       if (lesson.type === 'video' && lesson.videoFile) {
@@ -306,8 +308,8 @@ const handleLessonVideoChange = async (event: Event) => {
 
   const duration = await readVideoDuration(file)
 
-  if (duration > 120) {
-    errorMessage.value = 'ວິດີໂອຕ້ອງບໍ່ເກີນ 2 ນາທີ'
+  if (duration > 1200) {
+    errorMessage.value = 'ວິດີໂອຕ້ອງບໍ່ເກີນ 20 ນາທີ'
     input.value = ''
     return
   }

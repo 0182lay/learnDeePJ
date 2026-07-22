@@ -16,6 +16,7 @@ export type MyEnrollment = Enrollment & {
     price: string
     thumbnail_url: string | null
     level: string | null
+    lesson_count?: number
     category: {
       name: string
     }

@@ -13,7 +13,8 @@ import type { MyEnrollment } from '../../types/enrollment'
 import type { MyPayment, PaymentStatus } from '../../types/payment'
 import type { LearningProgress } from '../../types/progress'
 
-type TeacherTab = 'teaching' | 'learning' | 'payments'
+type TeacherTab = 'teaching' | 'learning' | 'payments' | 'reports'
+type TeacherReportType = 'courseStudents' | 'totalRevenue' | 'courseRevenue' | 'platformFee'
 
 const authStore = useAuthStore()
 
@@ -27,6 +28,8 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const updatingCourseId = ref('')
 const deletingCourseId = ref('')
+const selectedReportType = ref<TeacherReportType>('courseStudents')
+const selectedReportCourseId = ref('')
 
 const displayName = computed(() => {
   const profile = authStore.user?.profile
@@ -41,20 +44,62 @@ const publishedCoursesCount = computed(() => {
   return teachingCourses.value.filter((course) => course.is_published).length
 })
 
-const draftCoursesCount = computed(() => {
-  return teachingCourses.value.filter((course) => !course.is_published).length
-})
-
 const enrolledLearningCount = computed(() => enrollments.value.length)
 
 const pendingPaymentsCount = computed(() => {
   return payments.value.filter((payment) => payment.status === 'pending').length
 })
 
+const platformFeeRate = 0.3
+
+const reportCourses = computed(() => {
+  return teachingCourses.value.map((course) => {
+    const studentCount = course.enrollment_count || 0
+    const price = Number(String(course.price || 0).replace(/,/g, ''))
+    const grossRevenue = studentCount * price
+    const platformFee = grossRevenue * platformFeeRate
+    const instructorRevenue = grossRevenue - platformFee
+
+    return {
+      ...course,
+      studentCount,
+      grossRevenue,
+      platformFee,
+      instructorRevenue,
+    }
+  })
+})
+
+const selectedReportCourse = computed(() => {
+  return (
+    reportCourses.value.find((course) => course.course_id === selectedReportCourseId.value) ||
+    reportCourses.value[0]
+  )
+})
+
+const totalCourseStudents = computed(() => {
+  return reportCourses.value.reduce((sum, course) => sum + course.studentCount, 0)
+})
+
+const totalGrossRevenue = computed(() => {
+  return reportCourses.value.reduce((sum, course) => sum + course.grossRevenue, 0)
+})
+
+const totalPlatformFee = computed(() => totalGrossRevenue.value * platformFeeRate)
+const totalInstructorRevenue = computed(() => totalGrossRevenue.value - totalPlatformFee.value)
+
 const tabs: { key: TeacherTab; label: string; icon: string }[] = [
   { key: 'teaching', label: 'ຄອສທີ່ເປີດສອນ', icon: '▣' },
   { key: 'learning', label: 'ຄອສທີ່ຮຽນ', icon: '▤' },
   { key: 'payments', label: 'ປະຫວັດການຈ່າຍ', icon: '▥' },
+  { key: 'reports', label: 'ລາຍງານ', icon: '▦' },
+]
+
+const reportTypes: { key: TeacherReportType; label: string }[] = [
+  { key: 'courseStudents', label: 'ຈຳນວນຄົນສະໝັກຄອສຮຽນ' },
+  { key: 'totalRevenue', label: 'ລາຍໄດ້ລວມຂອງຄອສທັງໝົດ' },
+  { key: 'courseRevenue', label: 'ລາຍໄດ້ສະເພາະຄອສນັ້ນ' },
+  { key: 'platformFee', label: 'ສະຫຼຸບຫັກຄ່າແພລດຟອມ 30%' },
 ]
 
 const statusLabel: Record<PaymentStatus, string> = {
@@ -74,6 +119,56 @@ const statusClass: Record<PaymentStatus, string> = {
 const formatMoney = (amount: string | number) => {
   const value = Number(String(amount || 0).replace(/,/g, ''))
   return `₭${value.toLocaleString('en-US')}`
+}
+
+const csvCell = (value: string | number | null | undefined) => {
+  const text = String(value ?? '')
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+const exportTeacherReportCsv = () => {
+  const rows = [
+    [
+      'Course',
+      'Students',
+      'Course price',
+      'Gross revenue',
+      'Platform fee 30%',
+      'Instructor net revenue',
+    ],
+    ...reportCourses.value.map((course) => [
+      course.title,
+      course.studentCount,
+      formatMoney(course.price),
+      formatMoney(course.grossRevenue),
+      formatMoney(course.platformFee),
+      formatMoney(course.instructorRevenue),
+    ]),
+    [],
+    ['Total students', totalCourseStudents.value],
+    ['Total gross revenue', formatMoney(totalGrossRevenue.value)],
+    ['Total platform fee 30%', formatMoney(totalPlatformFee.value)],
+    ['Total instructor net revenue', formatMoney(totalInstructorRevenue.value)],
+  ]
+
+  const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = `teacher-report-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+const printTeacherReport = () => {
+  document.body.classList.add('printing-teacher-report')
+  window.print()
+
+  window.setTimeout(() => {
+    document.body.classList.remove('printing-teacher-report')
+  }, 300)
 }
 
 const resolveThumbnail = (url: string | null) => {
@@ -142,6 +237,7 @@ const loadDashboard = async () => {
     teachingCourses.value = courseList
     enrollments.value = enrollmentList
     payments.value = paymentList
+    selectedReportCourseId.value ||= courseList[0]?.course_id || ''
 
     const progressEntries = await Promise.all(
       enrollmentList.map(async (enrollment) => {
@@ -273,9 +369,9 @@ onMounted(() => {
           </article>
 
           <article class="card-soft p-5">
-            <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#f5a400]/10 text-xl">○</div>
-            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ draftCoursesCount }}</p>
-            <p class="mt-2 text-sm font-bold text-slate-500">ແບບຮ່າງ</p>
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-xl">₭</div>
+            <p class="mt-4 font-number text-3xl font-black text-[#0f1f4d]">{{ formatMoney(totalInstructorRevenue) }}</p>
+            <p class="mt-2 text-sm font-bold text-slate-500">ລາຍໄດ້ຫຼັງຫັກ 30%</p>
           </article>
 
           <article class="card-soft p-5">
@@ -285,7 +381,7 @@ onMounted(() => {
           </article>
         </div>
 
-        <div class="mt-8 inline-grid w-full max-w-2xl grid-cols-3 rounded-2xl bg-slate-200/80 p-1">
+        <div class="mt-8 inline-grid w-full max-w-4xl grid-cols-2 rounded-2xl bg-slate-200/80 p-1 md:grid-cols-4">
           <button
             v-for="tab in tabs"
             :key="tab.key"
@@ -429,7 +525,7 @@ onMounted(() => {
           </article>
         </section>
 
-        <section v-else class="mt-6">
+        <section v-else-if="activeTab === 'payments'" class="mt-6">
           <p v-if="payments.length === 0" class="card-soft px-6 py-10 text-center text-sm font-bold text-slate-500">
             ຍັງບໍ່ມີປະຫວັດການຈ່າຍ
           </p>
@@ -470,9 +566,246 @@ onMounted(() => {
             ມີ {{ pendingPaymentsCount }} ລາຍການທີ່ລໍຖ້າ admin ອະນຸມັດ
           </p>
         </section>
+
+        <section v-else id="teacher-report-print" class="mt-6 space-y-6">
+          <article class="card-soft p-6">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 class="text-xl font-black text-[#0f1f4d]">ລາຍງານຜູ້ສອນ</h2>
+                <p class="mt-1 text-sm font-semibold text-slate-500">
+                  ສະຫຼຸບຈຳນວນຜູ້ສະໝັກ, ລາຍໄດ້ຄອສ ແລະ ຄ່າແພລດຟອມ 30%
+                </p>
+              </div>
+
+              <div class="report-actions flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <label class="block">
+                  <span class="text-xs font-black uppercase text-slate-400">ປະເພດລາຍງານ</span>
+                  <select
+                    v-model="selectedReportType"
+                    class="mt-2 min-w-64 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#0f1f4d] outline-none transition focus:border-[#142b63] focus:ring-2 focus:ring-[#142b63]/15"
+                  >
+                    <option v-for="report in reportTypes" :key="report.key" :value="report.key">
+                      {{ report.label }}
+                    </option>
+                  </select>
+                </label>
+
+                <label
+                  v-if="selectedReportType === 'courseRevenue'"
+                  class="block"
+                >
+                  <span class="text-xs font-black uppercase text-slate-400">ເລືອກຄອສ</span>
+                  <select
+                    v-model="selectedReportCourseId"
+                    class="mt-2 min-w-64 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-[#0f1f4d] outline-none transition focus:border-[#142b63] focus:ring-2 focus:ring-[#142b63]/15"
+                  >
+                    <option
+                      v-for="course in reportCourses"
+                      :key="course.course_id"
+                      :value="course.course_id"
+                    >
+                      {{ course.title }}
+                    </option>
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  :disabled="reportCourses.length === 0"
+                  class="inline-flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#0f1f4d] shadow-sm transition hover:border-[#142b63] hover:text-[#142b63] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:self-end"
+                  @click="exportTeacherReportCsv"
+                >
+                  <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M12 3v11m0 0 4-4m-4 4-4-4"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  ສົ່ງອອກ CSV
+                </button>
+
+                <button
+                  type="button"
+                  :disabled="reportCourses.length === 0"
+                  class="inline-flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#0f1f4d] shadow-sm transition hover:border-[#142b63] hover:text-[#142b63] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:self-end"
+                  @click="printTeacherReport"
+                >
+                  <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M7 14h10v7H7z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  ພິມ
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <p
+            v-if="reportCourses.length === 0"
+            class="card-soft px-6 py-10 text-center text-sm font-bold text-slate-500"
+          >
+            ຍັງບໍ່ມີຄອສສຳລັບສ້າງລາຍງານ
+          </p>
+
+          <template v-else>
+            <div
+              v-if="selectedReportType === 'courseStudents'"
+              class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+            >
+              <article
+                v-for="course in reportCourses"
+                :key="course.course_id"
+                class="card-soft p-5"
+              >
+                <p class="line-clamp-2 min-h-12 text-base font-black text-[#0f1f4d]">
+                  {{ course.title }}
+                </p>
+                <p class="mt-4 font-number text-3xl font-black text-[#f5a400]">
+                  {{ course.studentCount }}
+                </p>
+                <p class="mt-1 text-sm font-bold text-slate-500">ຄົນສະໝັກຄອສນີ້</p>
+              </article>
+            </div>
+
+            <article
+              v-else-if="selectedReportType === 'totalRevenue'"
+              class="card-soft p-6"
+            >
+              <div class="grid gap-4 md:grid-cols-3">
+                <div class="rounded-2xl bg-slate-50 p-5">
+                  <p class="text-sm font-bold text-slate-500">ຈຳນວນຜູ້ສະໝັກທັງໝົດ</p>
+                  <p class="mt-2 font-number text-3xl font-black text-[#0f1f4d]">
+                    {{ totalCourseStudents }}
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-5">
+                  <p class="text-sm font-bold text-slate-500">ລາຍໄດ້ລວມກ່ອນຫັກ</p>
+                  <p class="mt-2 font-number text-3xl font-black text-[#f5a400]">
+                    {{ formatMoney(totalGrossRevenue) }}
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-emerald-50 p-5">
+                  <p class="text-sm font-bold text-emerald-700">ລາຍໄດ້ສຸດທິຜູ້ສອນ</p>
+                  <p class="mt-2 font-number text-3xl font-black text-emerald-700">
+                    {{ formatMoney(totalInstructorRevenue) }}
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article
+              v-else-if="selectedReportType === 'courseRevenue' && selectedReportCourse"
+              class="card-soft p-6"
+            >
+              <h3 class="text-lg font-black text-[#0f1f4d]">{{ selectedReportCourse.title }}</h3>
+              <div class="mt-5 grid gap-4 md:grid-cols-4">
+                <div class="rounded-2xl bg-slate-50 p-5">
+                  <p class="text-sm font-bold text-slate-500">ຜູ້ສະໝັກ</p>
+                  <p class="mt-2 font-number text-3xl font-black text-[#0f1f4d]">
+                    {{ selectedReportCourse.studentCount }}
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-5">
+                  <p class="text-sm font-bold text-slate-500">ລາຍໄດ້ກ່ອນຫັກ</p>
+                  <p class="mt-2 font-number text-2xl font-black text-[#f5a400]">
+                    {{ formatMoney(selectedReportCourse.grossRevenue) }}
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-red-50 p-5">
+                  <p class="text-sm font-bold text-red-600">ຫັກແພລດຟອມ 30%</p>
+                  <p class="mt-2 font-number text-2xl font-black text-red-600">
+                    {{ formatMoney(selectedReportCourse.platformFee) }}
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-emerald-50 p-5">
+                  <p class="text-sm font-bold text-emerald-700">ຜູ້ສອນໄດ້ຮັບ</p>
+                  <p class="mt-2 font-number text-2xl font-black text-emerald-700">
+                    {{ formatMoney(selectedReportCourse.instructorRevenue) }}
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article v-else class="card-soft overflow-hidden">
+              <div class="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 text-sm font-black text-slate-500">
+                <p>ຄອສ</p>
+                <p>ລາຍໄດ້ກ່ອນຫັກ</p>
+                <p>ຫັກ 30%</p>
+                <p>ຜູ້ສອນໄດ້ຮັບ</p>
+              </div>
+
+              <div>
+                <div
+                  v-for="course in reportCourses"
+                  :key="course.course_id"
+                  class="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-b-0"
+                >
+                  <p class="font-bold text-[#0f1f4d]">{{ course.title }}</p>
+                  <p class="font-number font-bold text-slate-700">{{ formatMoney(course.grossRevenue) }}</p>
+                  <p class="font-number font-bold text-red-600">{{ formatMoney(course.platformFee) }}</p>
+                  <p class="font-number font-black text-emerald-700">{{ formatMoney(course.instructorRevenue) }}</p>
+                </div>
+              </div>
+            </article>
+          </template>
+        </section>
       </template>
     </section>
 
     <HomeFooter />
   </main>
 </template>
+
+<style scoped>
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  :global(body.printing-teacher-report *) {
+    visibility: hidden !important;
+  }
+
+  :global(body.printing-teacher-report #teacher-report-print),
+  :global(body.printing-teacher-report #teacher-report-print *) {
+    visibility: visible !important;
+  }
+
+  .report-actions {
+    display: none !important;
+  }
+
+  #teacher-report-print {
+    position: absolute;
+    inset: 0;
+    margin: 0 !important;
+    width: 100%;
+  }
+
+  #teacher-report-print article {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}
+</style>

@@ -18,5 +18,6 @@ export type Lesson = {
   description: string | null
   order_index: number
   is_free_preview: boolean
+  is_last_lesson?: boolean
   files?: LessonFile[]
 }

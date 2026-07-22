@@ -194,6 +194,7 @@ export const createLessonService = async (
         description?: string;
         order_index?: number;
         is_free_preview?: boolean;
+        is_last_lesson?: boolean;
     },
 ) => {
     //ເຊັກຄອສວ່າມີບໍ່
@@ -230,8 +231,8 @@ export const updateLessonService = async (
         description?: string;
         order_index?: number;
         is_free_preview?: boolean;
-    },
-) => {
+        is_last_lesson?: boolean;
+    },) => {
     //ເຊັກວ່າ lesson ມີຢູ່ແທ້ ແລະ ຢູ່ໃນ course ນີ້ບໍ
     const lesson = await prisma.lesson.findFirst({
         where: {
